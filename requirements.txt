@@ -5,3 +5,4 @@ httpx2
 sqlalchemy
 psycopg[binary]
 pydantic-settings
+alembic
