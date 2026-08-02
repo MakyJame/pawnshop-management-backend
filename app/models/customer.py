@@ -1,9 +1,13 @@
-#from datetime import datetime
-#from sqlalchemy import DateTime, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from typing import TYPE_CHECKING
 
 from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.pawn_contract import PawnContract
+
 
 class Customer(Base):
     __tablename__ = "customers"
@@ -11,12 +15,17 @@ class Customer(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     name: Mapped[str] = mapped_column(
-            String(100),
-            nullable=False,
+        String(100),
+        nullable=False,
     )
 
     phone: Mapped[str] = mapped_column(
-            String(20),
-            unique=True,
-            nullable=False,
+        String(20),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    pawn_contracts: Mapped[list["PawnContract"]] = relationship(
+        back_populates="customer",
     )

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
+
 class CustomerBase(BaseModel):
     name: str = Field(
         min_length=2,
@@ -11,8 +12,10 @@ class CustomerBase(BaseModel):
         max_length=20,
     )
 
+
 class CustomerCreate(CustomerBase):
     pass
+
 
 class CustomerUpdate(BaseModel):
     name: str | None = Field(
@@ -27,7 +30,8 @@ class CustomerUpdate(BaseModel):
         max_length=20,
     )
 
-class  CustomerResponse(CustomerBase):
+
+class CustomerResponse(CustomerBase):
     id: int
 
-    model_config = ConfigDict(from_attribute=True)
+    model_config = ConfigDict(from_attributes=True)
