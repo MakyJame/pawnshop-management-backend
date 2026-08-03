@@ -1,9 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class PawnAssetCreate(BaseModel):
-    contract_id: int = Field(gt=0)
-
+class PawnAssetBase(BaseModel):
     asset_type: str = Field(
         min_length=2,
         max_length=50,
@@ -40,6 +38,10 @@ class PawnAssetCreate(BaseModel):
             return None
 
         return value.strip().upper().replace(" ", "")
+
+
+class PawnAssetCreate(PawnAssetBase):
+    contract_id: int = Field(gt=0)
 
 
 class PawnAssetUpdate(BaseModel):
@@ -83,13 +85,8 @@ class PawnAssetUpdate(BaseModel):
         return value.strip().upper().replace(" ", "")
 
 
-class PawnAssetResponse(BaseModel):
+class PawnAssetResponse(PawnAssetBase):
     id: int
     contract_id: int
-    asset_type: str
-    description: str
-    brand: str | None
-    model_year: int | None
-    license_plate: str | None
 
     model_config = ConfigDict(from_attributes=True)
