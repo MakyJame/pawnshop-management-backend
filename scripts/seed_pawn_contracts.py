@@ -11,8 +11,8 @@ from app.services.pawn_contract_service import (
 )
 
 
-CUSTOMER_PHONE = "0328888718"
-CONTRACT_CODE = "M-2026-001"
+CUSTOMER_PHONE = "0789606001"
+CONTRACT_CODE = "M-2026-003"
 
 
 def seed_pawn_contracts() -> None:
@@ -37,10 +37,10 @@ def seed_pawn_contracts() -> None:
                 PawnContractCreate(
                     contract_code=CONTRACT_CODE,
                     customer_id=customer.id,
-                    principal_amount=Decimal("11000000"),
+                    principal_amount=Decimal("5000000"),
                     monthly_interest_amount=Decimal("0"),
-                    start_date=date(2023, 12, 17),
-                    due_date=date(2024, 1, 17),
+                    start_date=date(2026, 8, 4),
+                    due_date=date(2026, 9, 4),
                 ),
             )
 

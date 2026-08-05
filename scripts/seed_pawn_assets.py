@@ -10,8 +10,8 @@ from app.services.pawn_asset_service import (
 )
 
 
-CONTRACT_CODE = "M-2026-001"
-LICENSE_PLATE = "36D1-18610"
+CONTRACT_CODE = "M-2026-003"
+LICENSE_PLATE = "61D1-0003"
 
 
 def seed_pawn_assets() -> None:

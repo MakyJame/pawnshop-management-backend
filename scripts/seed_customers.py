@@ -8,25 +8,36 @@ from app.services.customer_service import (
 
 def seed_customers() -> None:
     db = SessionLocal()
-
+    customer_data = [
+        CustomerCreate(
+            name="Minh 1",
+            phone="0789606001",
+        ),
+        CustomerCreate(
+            name="Minh 2",
+            phone="0789606002",
+        ),
+        CustomerCreate(
+            name="Minh 3",
+            phone="0789606003",
+        ),
+    ]
     try:
-        try:
-            customer = create_new_customer(
-                db,
-                CustomerCreate(
-                    name="Nguyen Van Hung",
-                    phone="0328888718",
-                ),
-            )
+        for customer in customer_data:
+            try:
+                created_customer=create_new_customer(
+                    db,
+                    customer,
+                )
+                print(
+                    "Created customer:",
+                    created_customer.id,
+                    created_customer.name,
+                )
 
-            print(
-                "Created customer:",
-                customer.id,
-                customer.name,
-            )
 
-        except CustomerPhoneAlreadyExistsError:
-            print("Customer already exists: 0328888718")
+            except CustomerPhoneAlreadyExistsError:
+                print("Customer already exists: 0328888718")
 
     finally:
         db.close()
