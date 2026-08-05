@@ -2,10 +2,8 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from app.main import app
-
-
-client = TestClient(app)
+#from app.main import app
+#lient = TestClient(app)
 
 
 def unique_phone() -> str:
@@ -16,7 +14,9 @@ def unique_contract_code() -> str:
     return f"HD-{str(uuid4())[:8]}"
 
 
-def create_customer() -> int:
+def create_customer(
+    client: TestClient,
+) -> int:
     response = client.post(
         "/customers",
         json={
@@ -30,8 +30,10 @@ def create_customer() -> int:
     return response.json()["id"]
 
 
-def test_create_pawn_contract_success() -> None:
-    customer_id = create_customer()
+def test_create_pawn_contract_success(
+    client: TestClient,
+) -> None:
+    customer_id = create_customer(client)
 
     response = client.post(
         "/pawn-contracts",
@@ -53,7 +55,9 @@ def test_create_pawn_contract_success() -> None:
     assert data["status"] == "active"
 
 
-def test_create_pawn_contract_rejects_missing_customer() -> None:
+def test_create_pawn_contract_rejects_missing_customer(
+    client: TestClient
+) -> None:
     response = client.post(
         "/pawn-contracts",
         json={
@@ -72,8 +76,10 @@ def test_create_pawn_contract_rejects_missing_customer() -> None:
     }
 
 
-def test_create_pawn_contract_rejects_duplicate_code() -> None:
-    customer_id = create_customer()
+def test_create_pawn_contract_rejects_duplicate_code(
+    client: TestClient
+) -> None:
+    customer_id = create_customer(client)
     contract_code = unique_contract_code()
 
     payload = {
@@ -99,8 +105,10 @@ def test_create_pawn_contract_rejects_duplicate_code() -> None:
     assert second_response.status_code == 409
 
 
-def test_create_pawn_contract_rejects_invalid_dates() -> None:
-    customer_id = create_customer()
+def test_create_pawn_contract_rejects_invalid_dates(
+    client: TestClient
+) -> None:
+    customer_id = create_customer(client)
 
     response = client.post(
         "/pawn-contracts",
@@ -117,7 +125,9 @@ def test_create_pawn_contract_rejects_invalid_dates() -> None:
     assert response.status_code == 422
 
 
-def test_get_missing_pawn_contract_returns_not_found() -> None:
+def test_get_missing_pawn_contract_returns_not_found(
+    client: TestClient
+) -> None:
     response = client.get(
         "/pawn-contracts/999999999",
     )

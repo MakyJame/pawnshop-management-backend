@@ -2,10 +2,8 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from app.main import app
-
-
-client = TestClient(app)
+#from app.main import app
+#client = TestClient(app)
 
 
 def unique_phone() -> str:
@@ -20,7 +18,9 @@ def unique_license_plate() -> str:
     return f"TEST-{str(uuid4().int)[-6:]}"
 
 
-def create_customer() -> int:
+def create_customer(
+    client: TestClient,
+) -> int:
     response = client.post(
         "/customers",
         json={
@@ -34,8 +34,10 @@ def create_customer() -> int:
     return response.json()["id"]
 
 
-def create_contract() -> int:
-    customer_id = create_customer()
+def create_contract(
+    client: TestClient,
+) -> int:
+    customer_id = create_customer(client)
 
     response = client.post(
         "/pawn-contracts",
@@ -54,8 +56,10 @@ def create_contract() -> int:
     return response.json()["id"]
 
 
-def test_create_pawn_asset_success() -> None:
-    contract_id = create_contract()
+def test_create_pawn_asset_success(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
     license_plate = unique_license_plate()
 
     response = client.post(
@@ -78,7 +82,9 @@ def test_create_pawn_asset_success() -> None:
     assert data["license_plate"] == license_plate
 
 
-def test_create_pawn_asset_rejects_missing_contract() -> None:
+def test_create_pawn_asset_rejects_missing_contract(
+    client: TestClient,
+) -> None:
     response = client.post(
         "/pawn-assets",
         json={
@@ -97,9 +103,11 @@ def test_create_pawn_asset_rejects_missing_contract() -> None:
     }
 
 
-def test_create_pawn_asset_rejects_duplicate_active_license_plate() -> None:
-    first_contract_id = create_contract()
-    second_contract_id = create_contract()
+def test_create_pawn_asset_rejects_duplicate_active_license_plate(
+    client: TestClient,
+) -> None:
+    first_contract_id = create_contract(client)
+    second_contract_id = create_contract(client)
     license_plate = unique_license_plate()
 
     first_response = client.post(
@@ -130,7 +138,9 @@ def test_create_pawn_asset_rejects_duplicate_active_license_plate() -> None:
     assert second_response.status_code == 409
 
 
-def test_get_missing_pawn_asset_returns_not_found() -> None:
+def test_get_missing_pawn_asset_returns_not_found(
+    client: TestClient,
+) -> None:
     response = client.get(
         "/pawn-assets/999999999",
     )
@@ -141,8 +151,10 @@ def test_get_missing_pawn_asset_returns_not_found() -> None:
     }
 
 
-def test_list_assets_by_contract() -> None:
-    contract_id = create_contract()
+def test_list_assets_by_contract(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
 
     create_response = client.post(
         "/pawn-assets",

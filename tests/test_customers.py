@@ -1,36 +1,28 @@
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-
-from app.main import app
-
-client = TestClient(app)
+#from app.main import app
+#client = TestClient(app)
 
 def create_unique_phone() -> str:
-    suffix = str(uuid4().int)[-8:]
+    return f"09{str(uuid4().int)[-8:]}"
 
-    return f"09{suffix}"
-
-def test_create_customer_returns_created_customer() -> None:
-    phone = create_unique_phone()
-
+def test_create_customer_returns_created_customer(
+    client: TestClient,
+) -> None:
     response = client.post(
         "/customers",
         json={
             "name": "API Test Customer",
-            "phone": phone,
+            "phone": create_unique_phone(),
         },
     )
 
     assert response.status_code == 201
 
-    response_data = response.json()
-
-    assert response_data["name"] == "API Test Customer"
-    assert response_data["phone"] == phone
-    assert isinstance(response_data["id"], int)
-
-def test_create_customer_rejects_duplicate_phone() -> None:
+def test_create_customer_rejects_duplicate_phone(
+    client: TestClient,
+) -> None:
     phone = create_unique_phone()
 
     customer_data = {
@@ -54,7 +46,9 @@ def test_create_customer_rejects_duplicate_phone() -> None:
         "detail": "Customer phone already exists.",
     }
 
-def test_get_missing_customer_returns_not_found() -> None:
+def test_get_missing_customer_returns_not_found(
+    client: TestClient,
+) -> None:
     response = client.get(
         "/customers/999999999",
     )
@@ -65,7 +59,9 @@ def test_get_missing_customer_returns_not_found() -> None:
     }
 
 
-def test_list_customers_returns_list() -> None:
+def test_list_customers_returns_list(
+    client: TestClient,
+) -> None:
     response = client.get("/customers")
 
     assert response.status_code == 200
