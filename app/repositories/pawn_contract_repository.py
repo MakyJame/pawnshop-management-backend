@@ -60,7 +60,8 @@ def create_contract(
     )
 
     db.add(contract)
-    db.commit()
+    #db.commit()
+    db.flush()
     db.refresh(contract)
 
     return contract

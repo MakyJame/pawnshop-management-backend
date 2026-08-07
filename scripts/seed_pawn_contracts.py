@@ -12,7 +12,7 @@ from app.services.pawn_contract_service import (
 
 
 CUSTOMER_PHONE = "0789606001"
-CONTRACT_CODE = "M-2026-003"
+CONTRACT_CODE = "M-2026-001"
 
 
 def seed_pawn_contracts() -> None:

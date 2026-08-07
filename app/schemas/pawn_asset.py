@@ -39,6 +39,8 @@ class PawnAssetBase(BaseModel):
 
         return value.strip().upper().replace(" ", "")
 
+class PawnAssetNestedCreate(PawnAssetBase):
+    pass
 
 class PawnAssetCreate(PawnAssetBase):
     contract_id: int = Field(gt=0)
@@ -73,16 +75,16 @@ class PawnAssetUpdate(BaseModel):
         max_length=30,
     )
 
-    @field_validator("license_plate")
-    @classmethod
-    def normalize_license_plate(
-        cls,
-        value: str | None,
-    ) -> str | None:
-        if value is None:
-            return None
+    #@field_validator("license_plate")
+    #@classmethod
+    #def normalize_license_plate(
+        #cls,
+        #value: str | None,
+    #) -> str | None:
+        #if value is None:
+            #return None
 
-        return value.strip().upper().replace(" ", "")
+        #return value.strip().upper().replace(" ", "")
 
 
 class PawnAssetResponse(PawnAssetBase):

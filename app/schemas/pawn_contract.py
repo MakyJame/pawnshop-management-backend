@@ -5,6 +5,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.pawn_contract import ContractStatus
 
+from app.schemas.pawn_asset import (
+    PawnAssetNestedCreate,
+    PawnAssetResponse,
+)
 
 class PawnContractCreate(BaseModel):
     contract_code: str = Field(
@@ -50,5 +54,17 @@ class PawnContractResponse(BaseModel):
     start_date: date
     due_date: date
     status: ContractStatus
+
+    model_config = ConfigDict(from_attributes=True)
+
+class PawnContractWithAssetsCreate(PawnContractCreate):
+    assets: list[PawnAssetNestedCreate] = Field(
+        min_length=1,
+        max_length=10,
+    )
+
+
+class PawnContractWithAssetsResponse(PawnContractResponse):
+    assets: list[PawnAssetResponse]
 
     model_config = ConfigDict(from_attributes=True)

@@ -51,7 +51,7 @@ def create_asset(
     )
 
     db.add(asset)
-    db.commit()
+    db.flush()
     db.refresh(asset)
 
     return asset

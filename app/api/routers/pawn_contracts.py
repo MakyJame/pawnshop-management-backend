@@ -7,15 +7,23 @@ from app.schemas.pawn_contract import (
     PawnContractResponse,
     PawnContractUpdate,
 )
+
+from app.schemas.pawn_contract import (
+    PawnContractWithAssetsCreate,
+    PawnContractWithAssetsResponse,
+)
+
 from app.services.pawn_contract_service import (
     InvalidPawnContractStatusError,
     PawnContractCodeAlreadyExistsError,
     PawnContractCustomerNotFoundError,
     PawnContractNotFoundError,
+    LicensePlateAlreadyPawnedError,
     create_new_pawn_contract,
     get_pawn_contract,
     get_pawn_contracts,
     update_existing_pawn_contract,
+    create_pawn_contract_with_assets,
 )
 
 
@@ -50,6 +58,38 @@ def create_pawn_contract_endpoint(
             detail="Pawn contract code already exists.",
         ) from error
 
+@router.post(
+    "/with-assets",
+    response_model=PawnContractWithAssetsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_pawn_contract_with_assets_endpoint(
+    contract_data: PawnContractWithAssetsCreate,
+    db: Session = Depends(get_db),
+) -> PawnContractWithAssetsResponse:
+    try:
+        return create_pawn_contract_with_assets(
+            db,
+            contract_data,
+        )
+
+    except PawnContractCustomerNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer not found.",
+        ) from error
+
+    except PawnContractCodeAlreadyExistsError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Pawn contract code already exists.",
+        ) from error
+
+    except LicensePlateAlreadyPawnedError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="License plate is already pawned.",
+        ) from error
 
 @router.get(
     "",
