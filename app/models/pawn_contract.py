@@ -1,3 +1,4 @@
+#models.pawn_contract
 from datetime import date
 from decimal import Decimal
 from enum import Enum
@@ -11,6 +12,7 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from app.models.customer import Customer
     from app.models.pawn_asset import PawnAsset
+    from app.models.payment import Payment
 
 
 class ContractStatus(str, Enum):
@@ -75,3 +77,10 @@ class PawnContract(Base):
         back_populates="contract",
         cascade="all, delete-orphan",
     )
+
+    payments: Mapped[list["Payment"]] = relationship(
+        back_populates="contract",
+        cascade="all, delete-orphan",
+    )
+
+#models.pawn_contract
