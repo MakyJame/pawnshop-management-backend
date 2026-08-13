@@ -19,6 +19,7 @@ from app.services.pawn_asset_service import (
 
 
 router = APIRouter(
+    prefix="/assets",
     tags=["Pawn Assets"],
 )
 
@@ -87,6 +88,22 @@ def list_contract_assets_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pawn contract not found.",
         ) from error
+
+@router.get(
+    "",
+    response_model=list[PawnAssetResponse],
+)
+def list_pawn_assets_endpoint(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> list[PawnAssetResponse]:
+    return get_pawn_contracts(
+        db,
+        offset=offset,
+        limit=limit,
+    )
+
 
 
 @router.patch(

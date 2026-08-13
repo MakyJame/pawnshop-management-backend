@@ -61,8 +61,8 @@ def create_contract(
 
     db.add(contract)
     #db.commit()
-    db.flush()
     db.refresh(contract)
+    db.flush()
 
     return contract
 
@@ -79,8 +79,9 @@ def update_contract(
     for field, value in update_data.items():
         setattr(contract, field, value)
 
-    db.commit()
-    db.refresh(contract)
-
+    #db.commit()
+    #db.refresh(contract)
+    db.flush()
+    
     return contract
 

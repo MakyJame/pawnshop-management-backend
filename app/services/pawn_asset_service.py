@@ -23,6 +23,17 @@ class PawnAssetContractNotFoundError(Exception):
 class LicensePlateAlreadyPawnedError(Exception):
     pass
 
+#list assets
+def get_pawn_assets(
+    db: Session,
+    offset: int = 0,
+    limit: int = 20,
+) -> list[PawnAsset]:
+    return list_pawn_assets(
+        db,
+        offset=offset,
+        limit=limit,
+    )
 
 def get_pawn_asset(
     db: Session,

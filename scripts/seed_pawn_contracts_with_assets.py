@@ -15,7 +15,7 @@ from app.services.pawn_contract_service import (
 )
 
 
-CUSTOMER_PHONE = "0789606001"
+CUSTOMER_PHONE = "0789606002"
 
 
 def seed_pawn_contracts_with_assets(
@@ -34,19 +34,19 @@ def seed_pawn_contracts_with_assets(
         return
 
     contract_data = PawnContractWithAssetsCreate(
-        contract_code="M-2026-001",
+        contract_code="M-2026-002",
         customer_id=customer.id,
-        principal_amount=Decimal("5000000"),
-        monthly_interest_amount=Decimal("0"),
+        principal_amount=Decimal("10000000"),
+        monthly_interest_amount=Decimal("500000"),
         start_date=date(2026, 8, 4),
         due_date=date(2026, 9, 4),
         assets=[
             PawnAssetNestedCreate(
                 asset_type="motorcycle",
-                description="Xe máy Honda Air Blade đời 2013",
+                description="Xe máy Honda Air Blade đời 2014",
                 brand="Honda Air Blade",
-                model_year=2013,
-                license_plate="61D1-0001",
+                model_year=2014,
+                license_plate="61D1-0002",
             ),
         ],
     )

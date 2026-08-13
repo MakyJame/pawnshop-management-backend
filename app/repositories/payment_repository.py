@@ -26,6 +26,7 @@ def list_payments_by_contract(
             Payment.payment_date,
             Payment.id
         )
+    )
     return list(
         db.scalars(statement).all()
     )
