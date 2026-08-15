@@ -87,10 +87,19 @@ def create_new_pawn_contract(
     if existing_contract is not None:
         raise PawnContractCodeAlreadyExistsError
 
-    return create_contract(
-        db,
-        contract_data,
-    )
+    try:
+        contract = create_contract(
+            db,
+            contract_data,
+        )
+
+        db.commit()
+        db.refresh(contract)
+        
+        return contract
+    except Exception:
+        db.rollback()
+        raise
 
 
 def update_existing_pawn_contract(
@@ -112,11 +121,20 @@ def update_existing_pawn_contract(
     ):
         raise InvalidPawnContractStatusError
 
-    return update_contract(
-        db,
-        contract,
-        contract_data,
-    )
+    try:
+        updated_contract = update_contract(
+            db,
+            contract,
+            contract_data,
+        )
+
+        db.commit()
+        db.refresh(updated_contract)
+
+        return updated_contract
+    except Exception:
+        db.rollback()
+        raise
 
 def create_pawn_contract_with_assets(
     db: Session,

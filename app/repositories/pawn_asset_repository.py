@@ -5,23 +5,6 @@ from app.models.pawn_asset import PawnAsset
 from app.models.pawn_contract import ContractStatus, PawnContract
 from app.schemas.pawn_asset import PawnAssetCreate, PawnAssetUpdate
 
-
-def list_pawn_assets(
-    db: Session,
-    offset: int = 0,
-    limit: int = 20,
-) -> list[PawnAsset]:
-    statement = (
-        select(PawnAsset)
-        .order_by(PawnAsset.id.desc())
-        .offset(offset)
-        .limit(limit)
-    )
-
-    return list(
-        db.scalars(statement).all()
-    )
-
 def get_asset_by_id(
     db: Session,
     asset_id: int,

@@ -61,7 +61,7 @@ def create_contract(
 
     db.add(contract)
     #db.commit()
-    db.refresh(contract)
+   # db.refresh(contract)
     db.flush()
 
     return contract

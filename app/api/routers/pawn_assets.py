@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException,Query, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -17,9 +17,11 @@ from app.services.pawn_asset_service import (
     update_existing_pawn_asset,
 )
 
+#from app.services.pawn_contract_service import (
+#    get_pawn_contracts,
+#)
 
 router = APIRouter(
-    prefix="/assets",
     tags=["Pawn Assets"],
 )
 
@@ -88,22 +90,6 @@ def list_contract_assets_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pawn contract not found.",
         ) from error
-
-@router.get(
-    "",
-    response_model=list[PawnAssetResponse],
-)
-def list_pawn_assets_endpoint(
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, ge=1, le=100),
-    db: Session = Depends(get_db),
-) -> list[PawnAssetResponse]:
-    return get_pawn_contracts(
-        db,
-        offset=offset,
-        limit=limit,
-    )
-
 
 
 @router.patch(
