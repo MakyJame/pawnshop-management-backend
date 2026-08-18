@@ -37,6 +37,8 @@ class PaymentResponse(BaseModel):
 class PaymentSummary(BaseModel):
     contract_id: int
     
+    principal_amount: Decimal
+
     total_interest_paid: Decimal
     total_principal_paid: Decimal
     outstanding_principal: Decimal

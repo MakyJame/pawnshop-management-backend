@@ -9,6 +9,7 @@ from app.schemas.payment import (
 )
 
 from app.services.payment_service import (
+    PrincipalPaymentExceedsOutstandingError,
     PaymentContractClosedError,
     PaymentContractNotFoundError,
     PaymentNotFoundError,
@@ -48,6 +49,12 @@ def create_payment_endpoint(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Pawn contract is closed and cannot receive payments.",
+        ) from error
+
+    except PrincipalPaymentExceedsOutstandingError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Principal payment exceeds outstanding principal.",
         ) from error
 
 @router.get(

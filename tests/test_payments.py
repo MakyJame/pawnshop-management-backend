@@ -340,3 +340,81 @@ def test_payment_summary_rejects_missing_contract(
     assert response.json() == {
         "detail": "Pawn contract not found.",
     }
+
+def test_principal_payment_rejects_amount_above_outstanding(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    first_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 3000000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-18",
+        },
+    )
+
+    assert first_response.status_code == 201
+
+    response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 9000000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-18",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Principal payment exceeds outstanding principal.",
+    }
+
+def test_principal_payment_allows_exact_outstanding_amount(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    first_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 3000000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-18",
+        },
+    )
+
+    assert first_response.status_code == 201
+
+    second_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 8000000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-18",
+        },
+    )
+
+    assert second_response.status_code == 201
+
+def test_interest_payment_is_not_checked_against_outstanding_principal(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 12000000,
+            "payment_type": "interest",
+            "payment_date": "2026-08-18",
+        },
+    )
+
+    assert response.status_code == 201  

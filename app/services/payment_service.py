@@ -26,6 +26,8 @@ class PaymentContractNotFoundError(Exception):
 class PaymentContractClosedError(Exception):
     pass
 
+class PrincipalPaymentExceedsOutstandingError(Exception):
+    pass
 
 def get_payment(
     db: Session,
@@ -77,7 +79,15 @@ def create_new_payment(
         ContractStatus.LIQUIDATED,
     }:
         raise PaymentContractClosedError
-
+    if payment_data.payment_type == PaymentType.PRINCIPAL:
+        total_principal_paid = get_total_paid_by_type(
+                db,
+                contract.id,
+                PaymentType.PRINCIPAL,
+        )
+        outstanding_principal = contract.principal_amount - total_principal_paid
+        if payment_data.amount > outstanding_principal: 
+            raise PrincipalPaymentExceedsOutstandingError
     try:
         payment = create_payment(
             db,
@@ -124,6 +134,8 @@ def get_payment_summary(
 
     return PaymentSummary(
         contract_id = contract.id,
+
+        principal_amount = contract.principal_amount,
         total_interest_paid = total_interest_paid,
         total_principal_paid = total_principal_paid,
         outstanding_principal = outstanding_principal,
