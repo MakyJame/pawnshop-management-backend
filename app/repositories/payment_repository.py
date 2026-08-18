@@ -1,11 +1,11 @@
 #repo.payment
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
-from app.models.payment import Payment
+from app.models.payment import Payment, PaymentType
 from app.schemas.payment import PaymentCreate
 
-
+from decimal import Decimal
 def get_payment_by_id(
     db: Session,
     payment_id: int,
@@ -44,5 +44,20 @@ def create_payment(
 
     return payment
 
-
+def get_total_paid_by_type(
+    db: Session,
+    contract_id: int,
+    payment_type: PaymentType,
+) -> Decimal:
+    statement = select(
+        func.coalesce(
+            func.sum(Payment.amount),
+                0,
+            )
+        ).where(
+            Payment.contract_id == contract_id,
+            Payment.payment_type == payment_type,
+        )
+    result = db.scalar(statement)
+    return Decimal(result)
 #repo.payment

@@ -5,6 +5,7 @@ from app.db.session import get_db
 from app.schemas.payment import (
     PaymentCreate,
     PaymentResponse,
+    PaymentSummary,
 )
 
 from app.services.payment_service import (
@@ -14,6 +15,7 @@ from app.services.payment_service import (
     create_new_payment,
     get_contract_payments,
     get_payment,
+    get_payment_summary,
 )
 
 router = APIRouter(
@@ -87,4 +89,23 @@ def list_contract_payments_endpoint(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pawn contract not found.",
+        ) from error
+
+@router.get(
+    "/pawn-contracts/{contract_id}/payment-summary",
+)
+
+def get_payment_summary_endpoint(
+    contract_id: int,
+    db: Session = Depends(get_db),
+) -> PaymentSummary:
+    try:
+        return get_payment_summary(
+            db,
+            contract_id,
+        )
+    except PaymentContractNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pawn contract not found."
         ) from error

@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-
+from decimal import Decimal
 
 def unique_phone() -> str:
     return f"09{str(uuid4().int)[-8:]}"
@@ -192,4 +192,151 @@ def test_create_payment_rejects_redeemed_contract(
     assert response.status_code == 409
     assert response.json() == {
         "detail": "Pawn contract is closed and cannot receive payments.",
+    }
+
+def test_payment_summary_before_any_payment(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.get(
+        f"/pawn-contracts/{contract_id}/payment-summary",
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["contract_id"] == contract_id
+    assert Decimal(data["total_interest_paid"]) == Decimal("0")
+    assert Decimal(data["total_principal_paid"]) == Decimal("0")
+    assert Decimal(data["outstanding_principal"]) == Decimal("11000000")
+
+def test_interest_payment_does_not_reduce_principal(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 550000,
+            "payment_type": "interest",
+            "payment_date": "2026-08-15",
+        },
+    )
+
+    assert response.status_code == 201
+
+    summary_response = client.get(
+        f"/pawn-contracts/{contract_id}/payment-summary",
+    )
+
+    assert summary_response.status_code == 200
+
+    data = summary_response.json()
+
+    assert Decimal(data["total_interest_paid"]) == Decimal("550000")
+    assert Decimal(data["total_principal_paid"]) == Decimal("0")
+    assert Decimal(data["outstanding_principal"]) == Decimal("11000000")
+
+def test_principal_payment_reduces_outstanding_principal(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 2000000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-15",
+        },
+    )
+
+    assert response.status_code == 201
+
+    summary_response = client.get(
+        f"/pawn-contracts/{contract_id}/payment-summary",
+    )
+
+    assert summary_response.status_code == 200
+
+    data = summary_response.json()
+
+    assert Decimal(data["total_principal_paid"]) == Decimal("2000000")
+
+    assert Decimal(
+        data["outstanding_principal"]
+    ) == Decimal("9000000")
+
+def test_payment_summary_combines_multiple_payments(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    payments = [
+        {
+            "amount": 550000,
+            "payment_type": "interest",
+        },
+        {
+            "amount": 550000,
+            "payment_type": "interest",
+        },
+        {
+            "amount": 2000000,
+            "payment_type": "principal",
+        },
+        {
+            "amount": 1000000,
+            "payment_type": "principal",
+        },
+    ]
+
+    for payment in payments:
+        response = client.post(
+            "/payments",
+            json={
+                "contract_id": contract_id,
+                "amount": payment["amount"],
+                "payment_type": payment["payment_type"],
+                "payment_date": "2026-08-15",
+            },
+        )
+
+        assert response.status_code == 201
+
+    response = client.get(
+        f"/pawn-contracts/{contract_id}/payment-summary",
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert Decimal(
+        data["total_interest_paid"]
+    ) == Decimal("1100000")
+
+    assert Decimal(
+        data["total_principal_paid"]
+    ) == Decimal("3000000")
+
+    assert Decimal(
+        data["outstanding_principal"]
+    ) == Decimal("8000000")
+
+def test_payment_summary_rejects_missing_contract(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/pawn-contracts/999999999/payment-summary",
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Pawn contract not found.",
     }

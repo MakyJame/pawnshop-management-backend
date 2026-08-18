@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models.pawn_contract import ContractStatus
-from app.models.payment import Payment
+from app.models.payment import Payment, PaymentType
 from app.repositories.pawn_contract_repository import (
     get_contract_by_id,
 )
@@ -9,9 +9,11 @@ from app.repositories.payment_repository import (
     create_payment,
     get_payment_by_id,
     list_payments_by_contract,
+    get_total_paid_by_type,
 )
-from app.schemas.payment import PaymentCreate
+from app.schemas.payment import PaymentCreate, PaymentSummary
 
+from decimal import Decimal
 
 class PaymentNotFoundError(Exception):
     pass
@@ -90,3 +92,39 @@ def create_new_payment(
     except Exception:
         db.rollback()
         raise
+
+def get_payment_summary(
+    db: Session,
+    contract_id: int,
+) -> PaymentSummary:
+    contract = get_contract_by_id(
+        db,
+        contract_id,
+    )
+
+    if contract is None:
+        raise PaymentContractNotFoundError
+
+    total_interest_paid = get_total_paid_by_type(
+        db,
+        contract_id,
+        PaymentType.INTEREST,
+    )
+
+    total_principal_paid = get_total_paid_by_type(
+        db,
+        contract_id,
+        PaymentType.PRINCIPAL,
+    )
+
+    outstanding_principal = contract.principal_amount - total_principal_paid
+
+    if outstanding_principal < Decimal("0"):
+        outstanding_principal = Decimal("0")
+
+    return PaymentSummary(
+        contract_id = contract.id,
+        total_interest_paid = total_interest_paid,
+        total_principal_paid = total_principal_paid,
+        outstanding_principal = outstanding_principal,
+    )

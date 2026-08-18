@@ -33,5 +33,12 @@ class PaymentResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
     )
+
+class PaymentSummary(BaseModel):
+    contract_id: int
+    
+    total_interest_paid: Decimal
+    total_principal_paid: Decimal
+    outstanding_principal: Decimal
 #schema.payment
 
