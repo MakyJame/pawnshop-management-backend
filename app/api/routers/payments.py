@@ -6,9 +6,12 @@ from app.schemas.payment import (
     PaymentCreate,
     PaymentResponse,
     PaymentSummary,
+    RedemptionCreate,
+    RedemptionResponse,
 )
 
 from app.services.payment_service import (
+    RedemptionAmountMismatchError,
     PrincipalPaymentExceedsOutstandingError,
     PaymentContractClosedError,
     PaymentContractNotFoundError,
@@ -17,6 +20,7 @@ from app.services.payment_service import (
     get_contract_payments,
     get_payment,
     get_payment_summary,
+    redeem_contract,
 )
 
 router = APIRouter(
@@ -115,4 +119,39 @@ def get_payment_summary_endpoint(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pawn contract not found."
+        ) from error
+
+@router.post(
+    "/pawn-contracts/{contract_id}/redeem",
+    response_model=RedemptionResponse,
+        status_code=status.HTTP_201_CREATED,
+)
+
+def redeem_contract_endpoint(
+    contract_id: int,
+    redemption_data: RedemptionCreate,
+    db: Session = Depends(get_db),
+) -> RedemptionResponse:
+    try:
+        return redeem_contract(
+            db,
+            contract_id,
+            redemption_data,
+        )
+    except PaymentContractNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pawn contract not found.",
+        ) from error
+
+    except PaymentContractClosedError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Pawn contract cannot be redeemed.",
+        ) from error
+
+    except RedemptionAmountMismatchError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Redemption amount must equal outstanding principal.",
         ) from error

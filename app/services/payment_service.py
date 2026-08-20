@@ -11,7 +11,7 @@ from app.repositories.payment_repository import (
     list_payments_by_contract,
     get_total_paid_by_type,
 )
-from app.schemas.payment import PaymentCreate, PaymentSummary
+from app.schemas.payment import PaymentCreate, PaymentSummary, RedemptionCreate, RedemptionResponse
 
 from decimal import Decimal
 
@@ -27,6 +27,9 @@ class PaymentContractClosedError(Exception):
     pass
 
 class PrincipalPaymentExceedsOutstandingError(Exception):
+    pass
+
+class RedemptionAmountMismatchError(Exception):
     pass
 
 def get_payment(
@@ -140,3 +143,61 @@ def get_payment_summary(
         total_principal_paid = total_principal_paid,
         outstanding_principal = outstanding_principal,
     )
+
+def redeem_contract(
+    db: Session,
+    contract_id: int,
+    redemption_data: RedemptionCreate,
+) -> RedemptionResponse:
+    contract = get_contract_by_id(
+        db,
+        contract_id,
+    )
+    if contract is None:
+        raise PaymentContractNotFoundError
+
+    if contract.status not in {
+            ContractStatus.ACTIVE,
+            ContractStatus.OVERDUE,
+    }:
+        raise PaymentContractClosedError
+
+    total_principal_paid = get_total_paid_by_type(
+        db,
+        contract_id,
+        PaymentType.PRINCIPAL,
+    ) 
+    outstanding_principal = (
+        contract.principal_amount
+        - total_principal_paid
+    )
+
+    if redemption_data.amount != outstanding_principal:
+        raise RedemptionAmountMismatchError
+
+    try:
+        payment = create_payment(
+            db,
+            PaymentCreate(
+                contract_id = contract_id,
+                amount = redemption_data.amount,
+                payment_type = PaymentType.REDEMPTION,
+                payment_date = redemption_data.payment_date,
+                note = redemption_data.note,
+            ),
+        )
+
+        contract.status = ContractStatus.REDEEMED
+
+        db.commit()
+        db.refresh(payment)
+        db.refresh(contract)
+
+        return RedemptionResponse(
+            contract_id=contract.id,
+            payment=payment,
+        )
+
+    except Exception:
+        db.rollback()
+        raise

@@ -25,17 +25,6 @@ def get_contract_by_code(
 
     return db.scalar(statement)
 
-def get_active_contract_by_license_plate(
-    db: Session,
-    license_plate: str,
-) -> PawnContract | None:
-    statement = select(PawnContract).where(
-        PawnContract.license_plate == license_plate,
-        PawnContract.status == ContractStatus.ACTIVE,
-    )
-
-    return db.scalar(statement)
-
 def list_contracts(
     db: Session,
     offset: int = 0,
@@ -84,4 +73,15 @@ def update_contract(
     db.flush()
     
     return contract
+
+#def get_active_contract_by_license_plate(
+#    db: Session,
+#    license_plate: str,
+#) -> PawnContract | None:
+#    statement = select(PawnContract).where(
+#        PawnContract.license_plate == license_plate,
+#        PawnContract.status == ContractStatus.ACTIVE,
+#    )
+#
+#    return db.scalar(statement)
 

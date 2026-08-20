@@ -418,3 +418,123 @@ def test_interest_payment_is_not_checked_against_outstanding_principal(
     )
 
     assert response.status_code == 201  
+
+def test_redeem_contract_success(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    principal_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 3000000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-18",
+        },
+    )
+
+    assert principal_response.status_code == 201
+
+    response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 8000000,
+            "payment_date": "2026-08-18",
+            "note": "Redeemed",
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["contract_id"] == contract_id
+    assert data["payment"]["payment_type"] == "redemption"
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert contract_response.status_code == 200
+    assert contract_response.json()["status"] == "redeemed"
+
+def test_redeem_contract_rejects_incorrect_amount(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 10000000,
+            "payment_date": "2026-08-18",
+        },
+    )
+
+    assert response.status_code == 409
+
+    assert response.json() == {
+        "detail": "Redemption amount must equal outstanding principal.",
+    }
+
+def test_failed_redemption_does_not_change_contract_status(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 10000000,
+            "payment_date": "2026-08-18",
+        },
+    )
+
+    assert response.status_code == 409
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert contract_response.status_code == 200
+    assert contract_response.json()["status"] == "active"
+
+    payments_response = client.get(
+        f"/pawn-contracts/{contract_id}/payments"
+    )
+
+    assert payments_response.status_code == 200
+
+    payments = payments_response.json()
+
+    assert all(
+        payment["payment_type"] != "redemption"
+        for payment in payments
+    )
+
+def test_redeemed_contract_cannot_be_redeemed_again(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    payload = {
+        "amount": 11000000,
+        "payment_date": "2026-08-18",
+    }
+
+    first_response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json=payload,
+    )
+
+    assert first_response.status_code == 201
+
+    second_response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json=payload,
+    )
+
+    assert second_response.status_code == 409
+
+

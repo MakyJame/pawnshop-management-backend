@@ -42,5 +42,17 @@ class PaymentSummary(BaseModel):
     total_interest_paid: Decimal
     total_principal_paid: Decimal
     outstanding_principal: Decimal
+
+class RedemptionCreate(BaseModel):
+    amount: Decimal = Field(gt=0)
+    payment_date: date
+    note: str | None = Field(
+        default=None,
+        max_length=500,
+    )
+
+class RedemptionResponse(BaseModel):
+    contract_id: int
+    payment: PaymentResponse
 #schema.payment
 
