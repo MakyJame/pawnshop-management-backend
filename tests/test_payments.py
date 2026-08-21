@@ -210,6 +210,7 @@ def test_payment_summary_before_any_payment(
     assert data["contract_id"] == contract_id
     assert Decimal(data["total_interest_paid"]) == Decimal("0")
     assert Decimal(data["total_principal_paid"]) == Decimal("0")
+    assert Decimal(data["total_redemption_paid"]) == Decimal("0")
     assert Decimal(data["outstanding_principal"]) == Decimal("11000000")
 
 def test_interest_payment_does_not_reduce_principal(
@@ -239,6 +240,7 @@ def test_interest_payment_does_not_reduce_principal(
 
     assert Decimal(data["total_interest_paid"]) == Decimal("550000")
     assert Decimal(data["total_principal_paid"]) == Decimal("0")
+    assert Decimal(data["total_redemption_paid"]) == Decimal("0")
     assert Decimal(data["outstanding_principal"]) == Decimal("11000000")
 
 def test_principal_payment_reduces_outstanding_principal(
@@ -537,4 +539,78 @@ def test_redeemed_contract_cannot_be_redeemed_again(
 
     assert second_response.status_code == 409
 
+def test_payment_summary_after_redemption_has_zero_outstanding(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
 
+    principal_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 3000000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-20",
+        },
+    )
+
+    assert principal_response.status_code == 201
+
+    redeem_response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 8000000,
+            "payment_date": "2026-08-20",
+        },
+    )
+
+    assert redeem_response.status_code == 201
+
+    response = client.get(
+        f"/pawn-contracts/{contract_id}/payment-summary"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert Decimal(
+        data["total_principal_paid"]
+    ) == Decimal("3000000")
+
+    assert Decimal(
+        data["total_redemption_paid"]
+    ) == Decimal("8000000")
+
+    assert Decimal(
+        data["outstanding_principal"]
+    ) == Decimal("0")
+
+def test_direct_redemption_payment_is_rejected(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    
+    response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 11000000,
+            "payment_type": "redemption",
+            "payment_date": "2026-08-20",
+        },
+    )
+    assert response.status_code == 409
+
+    assert response.json() == {
+        "detail": (
+            "Redemption payments must be created "
+            "through the contract redemption endpoint."
+        ),
+    }
+    payments_response = client.get(
+        f"/pawn-contracts/{contract_id}/payments"
+    )
+    assert payments_response.status_code == 200
+    assert payments_response.json() == []

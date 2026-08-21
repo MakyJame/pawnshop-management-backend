@@ -41,6 +41,7 @@ class PaymentSummary(BaseModel):
 
     total_interest_paid: Decimal
     total_principal_paid: Decimal
+    total_redemption_paid: Decimal
     outstanding_principal: Decimal
 
 class RedemptionCreate(BaseModel):

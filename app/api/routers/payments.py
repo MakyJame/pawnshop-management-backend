@@ -11,6 +11,7 @@ from app.schemas.payment import (
 )
 
 from app.services.payment_service import (
+    DirectRedemptionPaymentNotAllowedError,
     RedemptionAmountMismatchError,
     PrincipalPaymentExceedsOutstandingError,
     PaymentContractClosedError,
@@ -61,6 +62,14 @@ def create_payment_endpoint(
             detail="Principal payment exceeds outstanding principal.",
         ) from error
 
+    except DirectRedemptionPaymentNotAllowedError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Redemption payments must be created "
+                "through the contract redemption endpoint."
+        ),
+    ) from error
 @router.get(
     "/payments/{payment_id}",
     response_model=PaymentResponse,

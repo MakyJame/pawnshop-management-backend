@@ -32,6 +32,9 @@ class PrincipalPaymentExceedsOutstandingError(Exception):
 class RedemptionAmountMismatchError(Exception):
     pass
 
+class DirectRedemptionPaymentNotAllowedError(Exception):
+    pass
+
 def get_payment(
     db: Session,
     payment_id: int,
@@ -76,6 +79,9 @@ def create_new_payment(
 
     if contract is None:
         raise PaymentContractNotFoundError
+    
+    if payment_data.payment_type == PaymentType.REDEMPTION:
+        raise DirectRedemptionPaymentNotAllowedError
 
     if contract.status in {
         ContractStatus.REDEEMED,
@@ -130,7 +136,17 @@ def get_payment_summary(
         PaymentType.PRINCIPAL,
     )
 
-    outstanding_principal = contract.principal_amount - total_principal_paid
+    total_redemption_paid = get_total_paid_by_type(
+        db,
+        contract_id,
+        PaymentType.REDEMPTION,
+    )
+
+    outstanding_principal = (
+            contract.principal_amount 
+            - total_principal_paid
+            - total_redemption_paid
+    )
 
     if outstanding_principal < Decimal("0"):
         outstanding_principal = Decimal("0")
@@ -141,6 +157,7 @@ def get_payment_summary(
         principal_amount = contract.principal_amount,
         total_interest_paid = total_interest_paid,
         total_principal_paid = total_principal_paid,
+        total_redemption_paid = total_redemption_paid,
         outstanding_principal = outstanding_principal,
     )
 
