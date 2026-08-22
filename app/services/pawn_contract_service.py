@@ -24,6 +24,20 @@ from app.schemas.pawn_contract import (
 
 from app.schemas.pawn_asset import PawnAssetCreate
 
+ALLOWED_STATUS_TRANSITIONS: dict[
+    ContractStatus,
+    set[ContractStatus],
+] = {
+    ContractStatus.ACTIVE: {
+        ContractStatus.OVERDUE,
+        ContractStatus.LIQUIDATED,
+    },
+    ContractStatus.OVERDUE: {
+        ContractStatus.LIQUIDATED,
+    },
+    ContractStatus.REDEEMED: set(),
+    ContractStatus.LIQUIDATED: set(),
+}
 
 class PawnContractNotFoundError(Exception):
     pass
@@ -115,17 +129,11 @@ def update_existing_pawn_contract(
         contract_id,
     )
 
-    if contract.status == ContractStatus.LIQUIDATED:
-        raise InvalidPawnContractStatusError
-
-    if (
-        contract.status == ContractStatus.REDEEMED
-        and contract_data.status is not None
-    ):
-        raise InvalidPawnContractStatusError
-    
-    if contract_data.status == ContractStatus.REDEEMED:
-        raise DirectRedeemedStatusUpdateNotAllowedError
+    if contract_data.status is not None:
+        validate_status_transition(
+            contract.status,
+            contract_data.status,
+        )
 
     try:
         updated_contract = update_contract(
@@ -203,4 +211,14 @@ def create_pawn_contract_with_assets(
         db.rollback()
         raise
 
+def validate_status_transition(
+    current_status: ContractStatus,
+    new_status: ContractStatus,
+) -> None:
+    if new_status == ContractStatus.REDEEMED:
+        raise DirectRedeemedStatusUpdateNotAllowedError
 
+    allowed_statuses = ALLOWED_STATUS_TRANSITIONS[current_status]
+
+    if new_status not in allowed_statuses:
+        raise InvalidPawnContractStatusError

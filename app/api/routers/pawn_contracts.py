@@ -152,7 +152,7 @@ def update_pawn_contract_endpoint(
     except InvalidPawnContractStatusError as error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Pawn contract status does not allow this update.",
+            detail="Pawn contract status transition is not allowed.",
         ) from error
 
     except DirectRedeemedStatusUpdateNotAllowedError as error:
@@ -162,4 +162,4 @@ def update_pawn_contract_endpoint(
             "Pawn contract must be redeemed through "
             "the redemption endpoint."
         ),
-    ) from error
+    ) from error 

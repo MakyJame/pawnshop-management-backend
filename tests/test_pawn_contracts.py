@@ -304,3 +304,133 @@ def test_redeem_endpoint_is_allowed_to_set_redeemed_status(
     )
 
     assert contract_response.json()["status"] == "redeemed"
+
+def test_active_contract_can_be_marked_overdue(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "status": "overdue",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "overdue"
+
+def test_active_contract_can_be_liquidated(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "status": "liquidated",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "liquidated"
+
+def test_overdue_contract_can_be_liquidated(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    overdue_response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "status": "overdue",
+        },
+    )
+
+    assert overdue_response.status_code == 200
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "status": "liquidated",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "liquidated"
+
+def test_overdue_contract_cannot_return_to_active(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    first_response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "status": "overdue",
+        },
+    )
+
+    assert first_response.status_code == 200
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "status": "active",
+        },
+    )
+
+    assert response.status_code == 409
+
+    assert response.json() == {
+        "detail": "Pawn contract status transition is not allowed.",
+    }
+
+def test_liquidated_contract_cannot_change_status(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    liquidate_response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "status": "liquidated",
+        },
+    )
+
+    assert liquidate_response.status_code == 200
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "status": "active",
+        },
+    )
+
+    assert response.status_code == 409
+
+def test_redeemed_contract_cannot_change_status(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    redeem_response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 11000000,
+            "payment_date": "2026-08-22",
+        },
+    )
+
+    assert redeem_response.status_code == 201
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "status": "overdue",
+        },
+    )
+
+    assert response.status_code == 409
+
+
