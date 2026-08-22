@@ -170,14 +170,15 @@ def test_create_payment_rejects_redeemed_contract(
 ) -> None:
     contract_id = create_contract(client)
 
-    update_response = client.patch(
-        f"/pawn-contracts/{contract_id}",
+    redeem_response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
         json={
-            "status": "redeemed",
+            "amount": 11000000,
+            "payment_date": "2026-08-22",
         },
     )
 
-    assert update_response.status_code == 200
+    assert redeem_response.status_code == 201
 
     response = client.post(
         "/payments",
@@ -185,11 +186,12 @@ def test_create_payment_rejects_redeemed_contract(
             "contract_id": contract_id,
             "amount": 550000,
             "payment_type": "interest",
-            "payment_date": "2026-08-13",
+            "payment_date": "2026-08-22",
         },
     )
 
     assert response.status_code == 409
+
     assert response.json() == {
         "detail": "Pawn contract is closed and cannot receive payments.",
     }

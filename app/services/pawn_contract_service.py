@@ -43,6 +43,9 @@ class InvalidPawnContractStatusError(Exception):
 class LicensePlateAlreadyPawnedError(Exception):
     pass
 
+class DirectRedeemedStatusUpdateNotAllowedError(Exception):
+    pass
+
 def get_pawn_contract(
     db: Session,
     contract_id: int,
@@ -120,6 +123,9 @@ def update_existing_pawn_contract(
         and contract_data.status is not None
     ):
         raise InvalidPawnContractStatusError
+    
+    if contract_data.status == ContractStatus.REDEEMED:
+        raise DirectRedeemedStatusUpdateNotAllowedError
 
     try:
         updated_contract = update_contract(
@@ -196,3 +202,5 @@ def create_pawn_contract_with_assets(
     except Exception:
         db.rollback()
         raise
+
+

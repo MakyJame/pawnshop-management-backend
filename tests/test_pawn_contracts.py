@@ -30,6 +30,27 @@ def create_customer(
 
     return response.json()["id"]
 
+def create_contract(
+    client: TestClient,
+) -> int:
+    customer_id = create_customer(client)
+
+    response = client.post(
+        "/pawn-contracts",
+        json={
+            "contract_code": unique_contract_code(),
+            "customer_id": customer_id,
+            "principal_amount": 11000000,
+            "monthly_interest_amount": 550000,
+            "start_date": "2026-08-22",
+            "due_date": "2026-09-22",
+        },
+    )
+
+    assert response.status_code == 201
+    
+    return response.json()["id"]
+
 
 def test_create_pawn_contract_success(
     client: TestClient,
@@ -227,3 +248,59 @@ def test_get_missing_pawn_contract_returns_not_found(
     )
 
     assert response.status_code == 404
+    
+def test_patch_contract_cannot_set_status_to_redeemed(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "status": "redeemed",
+        },
+    )
+
+    assert response.status_code == 409
+
+    assert response.json() == {
+        "detail": (
+            "Pawn contract must be redeemed through "
+            "the redemption endpoint."
+        ),
+    }
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert contract_response.status_code == 200
+    assert contract_response.json()["status"] == "active"
+
+    payments_response = client.get(
+        f"/pawn-contracts/{contract_id}/payments"
+    )
+    
+    assert payments_response.status_code == 200
+    assert payments_response.json() == []
+
+def test_redeem_endpoint_is_allowed_to_set_redeemed_status(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 11000000,
+            "payment_date": "2026-08-22",
+        },
+    )
+
+    assert response.status_code == 201
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert contract_response.json()["status"] == "redeemed"

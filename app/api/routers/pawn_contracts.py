@@ -14,6 +14,7 @@ from app.schemas.pawn_contract import (
 )
 
 from app.services.pawn_contract_service import (
+    DirectRedeemedStatusUpdateNotAllowedError,
     InvalidPawnContractStatusError,
     PawnContractCodeAlreadyExistsError,
     PawnContractCustomerNotFoundError,
@@ -91,6 +92,7 @@ def create_pawn_contract_with_assets_endpoint(
             detail="License plate is already pawned.",
         ) from error
 
+
 @router.get(
     "",
     response_model=list[PawnContractResponse],
@@ -152,3 +154,12 @@ def update_pawn_contract_endpoint(
             status_code=status.HTTP_409_CONFLICT,
             detail="Pawn contract status does not allow this update.",
         ) from error
+
+    except DirectRedeemedStatusUpdateNotAllowedError as error:
+        raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=(
+            "Pawn contract must be redeemed through "
+            "the redemption endpoint."
+        ),
+    ) from error
