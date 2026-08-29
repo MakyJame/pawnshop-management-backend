@@ -68,3 +68,7 @@ class PawnContractWithAssetsResponse(PawnContractResponse):
     assets: list[PawnAssetResponse]
 
     model_config = ConfigDict(from_attributes=True)
+
+class OverdueRefreshResponse(BaseModel):
+    updated_count: int
+    contract_ids: list[int]

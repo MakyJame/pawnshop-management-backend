@@ -2,6 +2,22 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from datetime import date
+
+from app.models.pawn_contract import ContractStatus
+
+
+from app.schemas.pawn_contract import PawnContractCreate
+from app.services.pawn_contract_service import (
+    create_new_pawn_contract,
+    mark_overdue_contracts,
+)
+
+from app.repositories.customer_repository import (
+    create_customer as create_customer_in_db,
+)
+
+from app.schemas.customer import CustomerCreate
 #from app.main import app
 #lient = TestClient(app)
 
@@ -305,20 +321,18 @@ def test_redeem_endpoint_is_allowed_to_set_redeemed_status(
 
     assert contract_response.json()["status"] == "redeemed"
 
-def test_active_contract_can_be_marked_overdue(
-    client: TestClient,
-) -> None:
-    contract_id = create_contract(client)
-
-    response = client.patch(
-        f"/pawn-contracts/{contract_id}",
-        json={
-            "status": "overdue",
-        },
-    )
-
-    assert response.status_code == 200
-    assert response.json()["status"] == "overdue"
+#def test_active_contract_can_be_marked_overdue(
+#    client: TestClient,
+#) -> None:
+#    contract_id = create_contract(client)
+#    response = client.patch(
+#        f"/pawn-contracts/{contract_id}",
+#        json={
+#            "status": "overdue",
+#        },
+#    )
+#    assert response.status_code == 200
+#    assert response.json()["status"] == "overdue"
 
 def test_active_contract_can_be_liquidated(
     client: TestClient,
@@ -337,20 +351,41 @@ def test_active_contract_can_be_liquidated(
 
 def test_overdue_contract_can_be_liquidated(
     client: TestClient,
+    db_session,
 ) -> None:
-    contract_id = create_contract(client)
-
-    overdue_response = client.patch(
-        f"/pawn-contracts/{contract_id}",
-        json={
-            "status": "overdue",
-        },
+    customer = create_customer_in_db(
+        db_session,
+        CustomerCreate(
+            name="Overdue Liquidation Customer",
+            phone=unique_phone(),
+        ),
     )
 
-    assert overdue_response.status_code == 200
+    db_session.commit()
+    db_session.refresh(customer)
+
+    contract = create_new_pawn_contract(
+        db_session,
+        PawnContractCreate(
+            contract_code=unique_contract_code(),
+            customer_id=customer.id,
+            principal_amount=11000000,
+            monthly_interest_amount=550000,
+            start_date=date(2026, 7, 1),
+            due_date=date(2026, 8, 1),
+        ),
+    )
+
+    updated_contracts = mark_overdue_contracts(
+        db_session,
+        as_of_date=date(2026, 8, 2),
+    )
+
+    assert len(updated_contracts) == 1
+    assert updated_contracts[0].status == ContractStatus.OVERDUE
 
     response = client.patch(
-        f"/pawn-contracts/{contract_id}",
+        f"/pawn-contracts/{contract.id}",
         json={
             "status": "liquidated",
         },
@@ -361,20 +396,41 @@ def test_overdue_contract_can_be_liquidated(
 
 def test_overdue_contract_cannot_return_to_active(
     client: TestClient,
+    db_session,
 ) -> None:
-    contract_id = create_contract(client)
-
-    first_response = client.patch(
-        f"/pawn-contracts/{contract_id}",
-        json={
-            "status": "overdue",
-        },
+    customer = create_customer_in_db(
+        db_session,
+        CustomerCreate(
+            name="Overdue Status Test Customer",
+            phone=unique_phone(),
+        ),
     )
 
-    assert first_response.status_code == 200
+    db_session.commit()
+    db_session.refresh(customer)
+
+    contract = create_new_pawn_contract(
+        db_session,
+        PawnContractCreate(
+            contract_code=unique_contract_code(),
+            customer_id=customer.id,
+            principal_amount=11000000,
+            monthly_interest_amount=550000,
+            start_date=date(2026, 7, 1),
+            due_date=date(2026, 8, 1),
+        ),
+    )
+
+    updated_contracts = mark_overdue_contracts(
+        db_session,
+        as_of_date=date(2026, 8, 2),
+    )
+
+    assert len(updated_contracts) == 1
+    assert updated_contracts[0].status == ContractStatus.OVERDUE
 
     response = client.patch(
-        f"/pawn-contracts/{contract_id}",
+        f"/pawn-contracts/{contract.id}",
         json={
             "status": "active",
         },
@@ -433,4 +489,205 @@ def test_redeemed_contract_cannot_change_status(
 
     assert response.status_code == 409
 
+#def test_calculate_days_overdue_after_due_date() -> None:
+#    due_date = date(2026,8,20)
+#    as_of_date = date(2026,8,27)
+#    result = calculate_days_overdue(
+#        due_date,
+#        as_of_date,
+#    )
+#    assert result == 7
 
+def test_mark_overdue_contracts_marks_past_due_contract(
+    db_session,
+) -> None:
+    customer = create_customer_in_db(
+        db_session,
+        CustomerCreate(
+            name="Overdue Test Customer",
+            phone=unique_phone(),
+        ),
+    )
+
+    db_session.commit()
+    db_session.refresh(customer)
+
+    contract = create_new_pawn_contract(
+        db_session,
+        PawnContractCreate(
+            contract_code=unique_contract_code(),
+            customer_id=customer.id,
+            principal_amount=11000000,
+            monthly_interest_amount=550000,
+            start_date=date(2026, 7, 1),
+            due_date=date(2026, 8, 1),
+        ),
+    )
+
+    updated_contracts = mark_overdue_contracts(
+        db_session,
+        as_of_date=date(2026, 8, 2),
+    )
+
+    assert len(updated_contracts) == 1
+    assert updated_contracts[0].id == contract.id
+    assert updated_contracts[0].status == ContractStatus.OVERDUE
+
+def test_mark_overdue_contracts_does_not_change_future_contract(
+    db_session,
+) -> None:
+    customer = create_customer_in_db(
+        db_session,
+        CustomerCreate(
+            name="Future Contract Customer",
+            phone=unique_phone(),
+        ),
+    )
+
+    db_session.commit()
+    db_session.refresh(customer)
+
+    contract = create_new_pawn_contract(
+        db_session,
+        PawnContractCreate(
+            contract_code=unique_contract_code(),
+            customer_id=customer.id,
+            principal_amount=11000000,
+            monthly_interest_amount=550000,
+            start_date=date(2026, 7, 1),
+            due_date=date(2026, 8, 10),
+        ),
+    )
+
+    updated_contracts = mark_overdue_contracts(
+        db_session,
+        as_of_date=date(2026, 8, 2),
+    )
+
+    assert updated_contracts == []
+
+    db_session.refresh(contract)
+
+    assert contract.status == ContractStatus.ACTIVE
+
+def test_mark_overdue_contracts_does_not_mark_due_today(
+    db_session,
+) -> None:
+    customer = create_customer_in_db(
+        db_session,
+        CustomerCreate(
+            name="Due Today Customer",
+            phone=unique_phone(),
+        ),
+    )
+
+    db_session.commit()
+    db_session.refresh(customer)
+
+    contract = create_new_pawn_contract(
+        db_session,
+        PawnContractCreate(
+            contract_code=unique_contract_code(),
+            customer_id=customer.id,
+            principal_amount=11000000,
+            monthly_interest_amount=550000,
+            start_date=date(2026, 7, 22),
+            due_date=date(2026, 8, 22),
+        ),
+    )
+
+    updated_contracts = mark_overdue_contracts(
+        db_session,
+        as_of_date=date(2026, 8, 22),
+    )
+
+    assert updated_contracts == []
+
+    db_session.refresh(contract)
+
+    assert contract.status == ContractStatus.ACTIVE
+
+def test_mark_overdue_contracts_does_not_change_redeemed_contract(
+    client: TestClient,
+    db_session,
+) -> None:
+    contract_id = create_contract(client)
+
+    redeem_response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 11000000,
+            "payment_date": "2026-08-22",
+        },
+    )
+
+    assert redeem_response.status_code == 201
+
+    updated_contracts = mark_overdue_contracts(
+        db_session,
+        as_of_date=date(2026, 10, 1),
+    )
+
+    assert all(
+        contract.id != contract_id
+        for contract in updated_contracts
+    )
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert contract_response.status_code == 200
+    assert contract_response.json()["status"] == "redeemed"
+
+def test_mark_overdue_contracts_does_not_change_liquidated_contract(
+    client: TestClient,
+    db_session,
+) -> None:
+    contract_id = create_contract(client)
+
+    liquidate_response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "status": "liquidated",
+        },
+    )
+
+    assert liquidate_response.status_code == 200
+
+    updated_contracts = mark_overdue_contracts(
+        db_session,
+        as_of_date=date(2026, 10, 1),
+    )
+
+    assert all(
+        contract.id != contract_id
+        for contract in updated_contracts
+    )
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert contract_response.status_code == 200
+    assert contract_response.json()["status"] == "liquidated"
+
+def test_patch_contract_cannot_set_overdue_directly(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "status": "overdue",
+        },
+    )
+
+    assert response.status_code == 409
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert contract_response.json()["status"] == "active"

@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
 
+from datetime import date
+
 from app.models.pawn_contract import ContractStatus, PawnContract
 from app.models.pawn_asset import PawnAsset
 
@@ -10,6 +12,7 @@ from app.repositories.pawn_contract_repository import (
     get_contract_by_id,
     list_contracts,
     update_contract,
+    list_active_contracts_past_due,
 )
 
 from app.repositories.pawn_asset_repository import (
@@ -19,6 +22,7 @@ from app.repositories.pawn_asset_repository import (
 from app.schemas.pawn_contract import (
     PawnContractCreate,
     PawnContractUpdate,
+    PawnContractResponse,
     PawnContractWithAssetsCreate
 )
 
@@ -29,7 +33,7 @@ ALLOWED_STATUS_TRANSITIONS: dict[
     set[ContractStatus],
 ] = {
     ContractStatus.ACTIVE: {
-        ContractStatus.OVERDUE,
+        #ContractStatus.OVERDUE,
         ContractStatus.LIQUIDATED,
     },
     ContractStatus.OVERDUE: {
@@ -58,6 +62,9 @@ class LicensePlateAlreadyPawnedError(Exception):
     pass
 
 class DirectRedeemedStatusUpdateNotAllowedError(Exception):
+    pass
+
+class DirectOverdueStatusUpdateNotAllowedError(Exception):
     pass
 
 def get_pawn_contract(
@@ -218,7 +225,92 @@ def validate_status_transition(
     if new_status == ContractStatus.REDEEMED:
         raise DirectRedeemedStatusUpdateNotAllowedError
 
-    allowed_statuses = ALLOWED_STATUS_TRANSITIONS[current_status]
+    if new_status == ContractStatus.OVERDUE:
+        raise DirectOverdueStatusUpdateNotAllowedError
+
+    allowed_statuses = ALLOWED_STATUS_TRANSITIONS[
+        current_status
+    ]
 
     if new_status not in allowed_statuses:
         raise InvalidPawnContractStatusError
+
+def mark_overdue_contracts(
+    db: Session,
+    as_of_date: date,
+) -> list[PawnContract]:
+    contracts = list_active_contracts_past_due(
+        db,
+        as_of_date,
+    )
+
+    try:
+        for contract in contracts:
+            contract.status = ContractStatus.OVERDUE
+
+        db.commit()
+
+        for contract in contracts:
+            db.refresh(contract)
+
+        return contracts
+
+    except Exception:
+        db.rollback()
+        raise
+
+def calculate_days_overdue(
+    due_date: date,
+    as_of_date: date,
+) -> int:
+    if due_date < as_of_date:
+        return (as_of_date - due_date).days
+    return 0
+
+def calculate_overdue_bucket(
+    days_overdue: int,
+) -> str:
+    if day_overdue < 0:
+        raise ValueError(
+            "days_overdue cannot be negative"
+        )
+
+    if days_overdue == 0:
+        return "not_overdue"
+
+    if days_overdue <= 30:
+        return "overdue_1_30"
+
+    if days_overdue <= 60:
+        return "overdue_31_60"
+
+    if days_overdue <= 90:
+        return "overdue_61_90"
+
+    return "over_90_plus"
+
+def build_pawn_contract_response(
+    contract: PawnContract,
+    as_of_date: date,
+) -> PawnContractResponse:
+    days_overdue = calculate_days_overdue(
+        contract.due_date,
+        as_of_date,
+    )
+
+    overdue_bucket = calculate_overdue_bucket(
+        days_overdue,
+    )
+
+    return PawnContractResponse(
+        id=contract.id,
+        contract_code=contract.contract_code,
+        customer_id=contract.customer_id,
+        principal_amount=contract.principal_amount,
+        monthly_interest_amount=contract.monthly_interest_amount,
+        start_date=contract.start_date,
+        due_date=contract.due_date,
+        status=contract.status,
+        days_overdue=days_overdue,
+        overdue_bucket=overdue_bucket,
+    )

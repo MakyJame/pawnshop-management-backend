@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from datetime import date
+
 from app.db.session import get_db
 from app.schemas.pawn_contract import (
     PawnContractCreate,
@@ -11,9 +13,11 @@ from app.schemas.pawn_contract import (
 from app.schemas.pawn_contract import (
     PawnContractWithAssetsCreate,
     PawnContractWithAssetsResponse,
+    OverdueRefreshResponse,
 )
 
 from app.services.pawn_contract_service import (
+    DirectOverdueStatusUpdateNotAllowedError,
     DirectRedeemedStatusUpdateNotAllowedError,
     InvalidPawnContractStatusError,
     PawnContractCodeAlreadyExistsError,
@@ -108,6 +112,27 @@ def list_pawn_contracts_endpoint(
         limit=limit,
     )
 
+@router.post(
+    "/refresh-overdue",
+    response_model=OverdueRefreshResponse,
+)
+def refresh_overdue_contracts_endpoint(
+    db: Session = Depends(get_db),
+) -> OverdueRefreshResponse:
+    contracts = mark_overdue_contracts(
+        db,
+        date.today(),
+    )
+
+    return OverdueRefreshResponse(
+        updated_count=len(contracts),
+        contract_ids=[
+            contract.id
+            for contract in contracts
+        ],
+    )
+
+
 
 @router.get(
     "/{contract_id}",
@@ -144,11 +169,6 @@ def update_pawn_contract_endpoint(
             contract_id,
             contract_data,
         )
-    except PawnContractNotFoundError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Pawn contract not found.",
-        ) from error
     except InvalidPawnContractStatusError as error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -163,3 +183,19 @@ def update_pawn_contract_endpoint(
             "the redemption endpoint."
         ),
     ) from error 
+
+    except DirectOverdueStatusUpdateNotAllowedError as error:
+        raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=(
+            "Pawn contract overdue status "
+            "must be determined from due date."
+        ),
+    ) from error
+
+    except InvalidPawnContractStatusError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Pawn contract status transition is not allowed.",
+        ) from error
+

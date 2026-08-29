@@ -7,6 +7,7 @@ from app.schemas.pawn_contract import (
     PawnContractUpdate,
 )
 
+from datetime import date
 
 def get_contract_by_id(
     db: Session,
@@ -73,6 +74,21 @@ def update_contract(
     db.flush()
     
     return contract
+
+def list_active_contracts_past_due(
+    db: Session,
+    as_of_date: date,
+) -> list[PawnContract]:
+    statement = (
+        select(PawnContract)
+        .where(
+            PawnContract.status == ContractStatus.ACTIVE,
+            PawnContract.due_date < as_of_date,
+        )
+        .order_by(PawnContract.id)
+    )
+
+    return list(db.scalars(statement).all())
 
 #def get_active_contract_by_license_plate(
 #    db: Session,
