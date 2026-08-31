@@ -691,3 +691,17 @@ def test_patch_contract_cannot_set_overdue_directly(
     )
 
     assert contract_response.json()["status"] == "active"
+
+def test_refresh_overdue_endpoint_returns_success(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/pawn-contracts/refresh-overdue",
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "updated_count" in data
+    assert "contract_ids" in data
