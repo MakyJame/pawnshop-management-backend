@@ -11,6 +11,7 @@ from app.schemas.pawn_contract import PawnContractCreate
 from app.services.pawn_contract_service import (
     create_new_pawn_contract,
     mark_overdue_contracts,
+    liquidate_contract,
 )
 
 from app.repositories.customer_repository import (
@@ -67,6 +68,49 @@ def create_contract(
     
     return response.json()["id"]
 
+def create_liquidated_contract(
+    db_session,
+) -> int:
+    customer = create_customer_in_db(
+        db_session,
+        CustomerCreate(
+            name="Liquidated Test Customer",
+            phone=unique_phone(),
+        ),
+    )
+
+    db_session.commit()
+    db_session.refresh(customer)
+
+    contract = create_new_pawn_contract(
+        db_session,
+        PawnContractCreate(
+            contract_code=unique_contract_code(),
+            customer_id=customer.id,
+            principal_amount=11000000,
+            monthly_interest_amount=550000,
+            start_date=date(2026, 7, 1),
+            due_date=date(2026, 8, 1),
+        ),
+    )
+
+    mark_overdue_contracts(
+        db_session,
+        as_of_date=date(2026, 8, 2),
+    )
+
+    liquidated_contract = liquidate_contract(
+        db_session,
+        contract.id,
+        as_of_date=date(2026, 8, 5),
+    )
+
+    assert (
+        liquidated_contract.status
+        == ContractStatus.LIQUIDATED
+    )
+
+    return contract.id
 
 def test_create_pawn_contract_success(
     client: TestClient,
@@ -334,23 +378,7 @@ def test_redeem_endpoint_is_allowed_to_set_redeemed_status(
 #    assert response.status_code == 200
 #    assert response.json()["status"] == "overdue"
 
-def test_active_contract_can_be_liquidated(
-    client: TestClient,
-) -> None:
-    contract_id = create_contract(client)
-
-    response = client.patch(
-        f"/pawn-contracts/{contract_id}",
-        json={
-            "status": "liquidated",
-        },
-    )
-
-    assert response.status_code == 200
-    assert response.json()["status"] == "liquidated"
-
 def test_overdue_contract_can_be_liquidated(
-    client: TestClient,
     db_session,
 ) -> None:
     customer = create_customer_in_db(
@@ -376,23 +404,21 @@ def test_overdue_contract_can_be_liquidated(
         ),
     )
 
-    updated_contracts = mark_overdue_contracts(
+    mark_overdue_contracts(
         db_session,
         as_of_date=date(2026, 8, 2),
     )
 
-    assert len(updated_contracts) == 1
-    assert updated_contracts[0].status == ContractStatus.OVERDUE
-
-    response = client.patch(
-        f"/pawn-contracts/{contract.id}",
-        json={
-            "status": "liquidated",
-        },
+    liquidated_contract = liquidate_contract(
+        db_session,
+        contract.id,
+        as_of_date=date(2026, 8, 5),
     )
 
-    assert response.status_code == 200
-    assert response.json()["status"] == "liquidated"
+    assert (
+        liquidated_contract.status
+        == ContractStatus.LIQUIDATED
+    )
 
 def test_overdue_contract_cannot_return_to_active(
     client: TestClient,
@@ -444,17 +470,11 @@ def test_overdue_contract_cannot_return_to_active(
 
 def test_liquidated_contract_cannot_change_status(
     client: TestClient,
+    db_session,
 ) -> None:
-    contract_id = create_contract(client)
-
-    liquidate_response = client.patch(
-        f"/pawn-contracts/{contract_id}",
-        json={
-            "status": "liquidated",
-        },
+    contract_id = create_liquidated_contract(
+        db_session,
     )
-
-    assert liquidate_response.status_code == 200
 
     response = client.patch(
         f"/pawn-contracts/{contract_id}",
@@ -464,6 +484,16 @@ def test_liquidated_contract_cannot_change_status(
     )
 
     assert response.status_code == 409
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert contract_response.status_code == 200
+    assert (
+        contract_response.json()["status"]
+        == "liquidated"
+    )
 
 def test_redeemed_contract_cannot_change_status(
     client: TestClient,
@@ -644,16 +674,9 @@ def test_mark_overdue_contracts_does_not_change_liquidated_contract(
     client: TestClient,
     db_session,
 ) -> None:
-    contract_id = create_contract(client)
-
-    liquidate_response = client.patch(
-        f"/pawn-contracts/{contract_id}",
-        json={
-            "status": "liquidated",
-        },
+    contract_id = create_liquidated_contract(
+        db_session,
     )
-
-    assert liquidate_response.status_code == 200
 
     updated_contracts = mark_overdue_contracts(
         db_session,
@@ -670,7 +693,10 @@ def test_mark_overdue_contracts_does_not_change_liquidated_contract(
     )
 
     assert contract_response.status_code == 200
-    assert contract_response.json()["status"] == "liquidated"
+    assert (
+        contract_response.json()["status"]
+        == "liquidated"
+    )
 
 def test_patch_contract_cannot_set_overdue_directly(
     client: TestClient,
@@ -705,3 +731,119 @@ def test_refresh_overdue_endpoint_returns_success(
 
     assert "updated_count" in data
     assert "contract_ids" in data
+
+def test_patch_contract_cannot_set_status_to_liquidated(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "status": "liquidated",
+        },
+    )
+
+    assert response.status_code == 409
+
+    assert response.json() == {
+        "detail": (
+            "Pawn contract must be liquidated through "
+            "the liquidation endpoint."
+        ),
+    }
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert contract_response.status_code == 200
+    assert contract_response.json()["status"] == "active"
+
+def test_liquidate_endpoint_success(
+    client: TestClient,
+    db_session,
+) -> None:
+    customer = create_customer_in_db(
+        db_session,
+        CustomerCreate(
+            name="Liquidation Endpoint Customer",
+            phone=unique_phone(),
+        ),
+    )
+
+    db_session.commit()
+    db_session.refresh(customer)
+
+    contract = create_new_pawn_contract(
+        db_session,
+        PawnContractCreate(
+            contract_code=unique_contract_code(),
+            customer_id=customer.id,
+            principal_amount=11000000,
+            monthly_interest_amount=550000,
+            start_date=date(2026, 7, 1),
+            due_date=date(2026, 8, 1),
+        ),
+    )
+
+    mark_overdue_contracts(
+        db_session,
+        as_of_date=date(2026, 8, 2),
+    )
+
+    response = client.post(
+        f"/pawn-contracts/{contract.id}/liquidate",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "liquidated"
+
+def test_liquidate_endpoint_rejects_active_contract(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.post(
+        f"/pawn-contracts/{contract_id}/liquidate",
+    )
+
+    assert response.status_code == 409
+
+    assert response.json() == {
+        "detail": (
+            "Only overdue pawn contracts "
+            "can be liquidated."
+        ),
+    }
+
+def test_liquidate_endpoint_rejects_missing_contract(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/pawn-contracts/999999999/liquidate",
+    )
+
+    assert response.status_code == 404
+
+    assert response.json() == {
+        "detail": "Pawn contract not found.",
+    }
+
+def test_liquidated_contract_cannot_be_redeemed(
+    client: TestClient,
+    db_session,
+) -> None:
+    contract_id = create_liquidated_contract(
+        db_session,
+    )
+
+    response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 11000000,
+            "payment_date": "2026-09-01",
+        },
+    )
+
+    assert response.status_code == 409

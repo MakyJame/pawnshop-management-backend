@@ -17,6 +17,10 @@ from app.schemas.pawn_contract import (
 )
 
 from app.services.pawn_contract_service import (
+    DirectLiquidatedStatusUpdateNotAllowedError,
+    LiquidationContractNotOverdueError,
+    LiquidationGracePeriodNotExpiredError,
+    liquidate_contract,
     DirectOverdueStatusUpdateNotAllowedError,
     DirectRedeemedStatusUpdateNotAllowedError,
     InvalidPawnContractStatusError,
@@ -29,6 +33,7 @@ from app.services.pawn_contract_service import (
     get_pawn_contracts,
     update_existing_pawn_contract,
     create_pawn_contract_with_assets,
+     mark_overdue_contracts,
 )
 
 
@@ -169,11 +174,6 @@ def update_pawn_contract_endpoint(
             contract_id,
             contract_data,
         )
-    except InvalidPawnContractStatusError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Pawn contract status transition is not allowed.",
-        ) from error
 
     except DirectRedeemedStatusUpdateNotAllowedError as error:
         raise HTTPException(
@@ -192,10 +192,59 @@ def update_pawn_contract_endpoint(
             "must be determined from due date."
         ),
     ) from error
+    
+    except DirectLiquidatedStatusUpdateNotAllowedError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Pawn contract must be liquidated through "
+                "the liquidation endpoint."
+            ),
+        ) from error
+
 
     except InvalidPawnContractStatusError as error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Pawn contract status transition is not allowed.",
+        ) from error
+
+@router.post(
+    "/{contract_id}/liquidate",
+    response_model=PawnContractResponse,
+)
+def liquidate_pawn_contract_endpoint(
+    contract_id: int,
+    db: Session = Depends(get_db),
+) -> PawnContractResponse:
+    try:
+        return liquidate_contract(
+            db,
+            contract_id,
+            as_of_date=date.today(),
+        )
+
+    except PawnContractNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pawn contract not found.",
+        ) from error
+
+    except LiquidationContractNotOverdueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Only overdue pawn contracts "
+                "can be liquidated."
+            ),
+        ) from error
+
+    except LiquidationGracePeriodNotExpiredError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Pawn contract cannot be liquidated "
+                "until the 3-day grace period has expired."
+            ),
         ) from error
 

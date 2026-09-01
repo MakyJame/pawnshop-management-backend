@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from datetime import date
+from datetime import date, timedelta
 
 from app.models.pawn_contract import ContractStatus, PawnContract
 from app.models.pawn_asset import PawnAsset
@@ -32,13 +32,8 @@ ALLOWED_STATUS_TRANSITIONS: dict[
     ContractStatus,
     set[ContractStatus],
 ] = {
-    ContractStatus.ACTIVE: {
-        #ContractStatus.OVERDUE,
-        ContractStatus.LIQUIDATED,
-    },
-    ContractStatus.OVERDUE: {
-        ContractStatus.LIQUIDATED,
-    },
+    ContractStatus.ACTIVE: set(),
+    ContractStatus.OVERDUE: set(),
     ContractStatus.REDEEMED: set(),
     ContractStatus.LIQUIDATED: set(),
 }
@@ -65,6 +60,17 @@ class DirectRedeemedStatusUpdateNotAllowedError(Exception):
     pass
 
 class DirectOverdueStatusUpdateNotAllowedError(Exception):
+    pass
+
+class LiquidationContractNotOverdueError(Exception):
+    pass
+
+
+class LiquidationGracePeriodNotExpiredError(Exception):
+    pass
+
+
+class DirectLiquidatedStatusUpdateNotAllowedError(Exception):
     pass
 
 def get_pawn_contract(
@@ -228,6 +234,9 @@ def validate_status_transition(
     if new_status == ContractStatus.OVERDUE:
         raise DirectOverdueStatusUpdateNotAllowedError
 
+    if new_status == ContractStatus.LIQUIDATED:
+        raise DirectLiquidatedStatusUpdateNotAllowedError    
+
     allowed_statuses = ALLOWED_STATUS_TRANSITIONS[
         current_status
     ]
@@ -270,7 +279,7 @@ def calculate_days_overdue(
 def calculate_overdue_bucket(
     days_overdue: int,
 ) -> str:
-    if day_overdue < 0:
+    if days_overdue < 0:
         raise ValueError(
             "days_overdue cannot be negative"
         )
@@ -314,3 +323,36 @@ def build_pawn_contract_response(
         days_overdue=days_overdue,
         overdue_bucket=overdue_bucket,
     )
+
+def liquidate_contract(
+    db: Session,
+    contract_id: int,
+    as_of_date: date,
+) -> PawnContract: 
+    contract = get_pawn_contract(
+        db,
+        contract_id,
+    )
+
+    if contract.status != ContractStatus.OVERDUE:
+        raise LiquidationContractNotOverdueError
+
+    liquidation_eligible_date = (
+        contract.due_date
+        + timedelta(days=3)
+    )
+
+    if as_of_date <= liquidation_eligible_date:
+        raise LiquidationGracePeriodNotExpiredError
+
+    try:
+        contract.status = ContractStatus.LIQUIDATED
+
+        db.commit()
+        db.refresh(contract)
+
+        return contract
+
+    except Exception:
+        db.rollback()
+        raise

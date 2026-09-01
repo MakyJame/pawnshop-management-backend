@@ -3,6 +3,20 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from decimal import Decimal
 
+from datetime import date
+
+from app.models.pawn_contract import ContractStatus
+from app.repositories.customer_repository import (
+    create_customer as create_customer_in_db,
+)
+from app.schemas.customer import CustomerCreate
+from app.schemas.pawn_contract import PawnContractCreate
+from app.services.pawn_contract_service import (
+    create_new_pawn_contract,
+    liquidate_contract,
+    mark_overdue_contracts,
+)
+
 def unique_phone() -> str:
     return f"09{str(uuid4().int)[-8:]}"
 
@@ -616,3 +630,72 @@ def test_direct_redemption_payment_is_rejected(
     )
     assert payments_response.status_code == 200
     assert payments_response.json() == []
+
+def test_create_payment_rejects_liquidated_contract(
+    client: TestClient,
+    db_session,
+) -> None:
+    customer = create_customer_in_db(
+        db_session,
+        CustomerCreate(
+            name="Liquidated Payment Customer",
+            phone=unique_phone(),
+        ),
+    )
+
+    db_session.commit()
+    db_session.refresh(customer)
+
+    contract = create_new_pawn_contract(
+        db_session,
+        PawnContractCreate(
+            contract_code=unique_contract_code(),
+            customer_id=customer.id,
+            principal_amount=11000000,
+            monthly_interest_amount=550000,
+            start_date=date(2026, 7, 1),
+            due_date=date(2026, 8, 1),
+        ),
+    )
+
+    assert contract.status == ContractStatus.ACTIVE
+
+    mark_overdue_contracts(
+        db_session,
+        as_of_date=date(2026,8,2)
+    )
+
+    db_session.refresh(contract)
+    
+    assert contract.status == ContractStatus.OVERDUE
+
+    liquidated_contract = liquidate_contract(
+        db_session,
+        contract.id,
+        as_of_date=date(2026, 8, 5),
+    )
+    
+    assert (
+        liquidated_contract.status
+        == ContractStatus.LIQUIDATED
+    )
+
+    response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract.id,
+            "amount": 550000,
+            "payment_type": "interest",
+            "payment_date": "2026-08-06",
+            "note": "Payment after liquidation",
+        },
+    )
+
+    assert response.status_code == 409
+
+    assert response.json() == {
+        "detail": (
+            "Pawn contract is closed "
+            "and cannot receive payments."
+        ),
+    }
