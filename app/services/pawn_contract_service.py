@@ -28,15 +28,15 @@ from app.schemas.pawn_contract import (
 
 from app.schemas.pawn_asset import PawnAssetCreate
 
-ALLOWED_STATUS_TRANSITIONS: dict[
-    ContractStatus,
-    set[ContractStatus],
-] = {
-    ContractStatus.ACTIVE: set(),
-    ContractStatus.OVERDUE: set(),
-    ContractStatus.REDEEMED: set(),
-    ContractStatus.LIQUIDATED: set(),
-}
+#ALLOWED_STATUS_TRANSITIONS: dict[
+#    ContractStatus,
+#    set[ContractStatus],
+#] = {
+#    ContractStatus.ACTIVE: set(),
+#    ContractStatus.OVERDUE: set(),
+#    ContractStatus.REDEEMED: set(),
+#    ContractStatus.LIQUIDATED: set(),
+#}
 
 class PawnContractNotFoundError(Exception):
     pass
@@ -56,11 +56,11 @@ class InvalidPawnContractStatusError(Exception):
 class LicensePlateAlreadyPawnedError(Exception):
     pass
 
-class DirectRedeemedStatusUpdateNotAllowedError(Exception):
-    pass
+#class DirectRedeemedStatusUpdateNotAllowedError(Exception):
+#    pass
 
-class DirectOverdueStatusUpdateNotAllowedError(Exception):
-    pass
+#class DirectOverdueStatusUpdateNotAllowedError(Exception):
+#    pass
 
 class LiquidationContractNotOverdueError(Exception):
     pass
@@ -70,7 +70,10 @@ class LiquidationGracePeriodNotExpiredError(Exception):
     pass
 
 
-class DirectLiquidatedStatusUpdateNotAllowedError(Exception):
+#class DirectLiquidatedStatusUpdateNotAllowedError(Exception):
+#    pass
+
+class PawnContractNotEditableError(Exception):
     pass
 
 def get_pawn_contract(
@@ -142,11 +145,14 @@ def update_existing_pawn_contract(
         contract_id,
     )
 
-    if contract_data.status is not None:
-        validate_status_transition(
-            contract.status,
-            contract_data.status,
-        )
+    #if contract_data.status is not None:
+    #    validate_status_transition(
+    #        contract.status,
+    #        contract_data.status,
+    #    )
+    
+    if contract.status != ContractStatus.ACTIVE:
+        raise PawnContractNotEditableError
 
     try:
         updated_contract = update_contract(
@@ -224,25 +230,25 @@ def create_pawn_contract_with_assets(
         db.rollback()
         raise
 
-def validate_status_transition(
-    current_status: ContractStatus,
-    new_status: ContractStatus,
-) -> None:
-    if new_status == ContractStatus.REDEEMED:
-        raise DirectRedeemedStatusUpdateNotAllowedError
-
-    if new_status == ContractStatus.OVERDUE:
-        raise DirectOverdueStatusUpdateNotAllowedError
-
-    if new_status == ContractStatus.LIQUIDATED:
-        raise DirectLiquidatedStatusUpdateNotAllowedError    
-
-    allowed_statuses = ALLOWED_STATUS_TRANSITIONS[
-        current_status
-    ]
-
-    if new_status not in allowed_statuses:
-        raise InvalidPawnContractStatusError
+#def validate_status_transition(
+#    current_status: ContractStatus,
+#    new_status: ContractStatus,
+#) -> None:
+#    if new_status == ContractStatus.REDEEMED:
+#        raise DirectRedeemedStatusUpdateNotAllowedError
+#
+#    if new_status == ContractStatus.OVERDUE:
+#        raise DirectOverdueStatusUpdateNotAllowedError
+#
+#    if new_status == ContractStatus.LIQUIDATED:
+#        raise DirectLiquidatedStatusUpdateNotAllowedError    
+#
+#    allowed_statuses = ALLOWED_STATUS_TRANSITIONS[
+#        current_status
+#    ]
+#
+#    if new_status not in allowed_statuses:
+#        raise InvalidPawnContractStatusError
 
 def mark_overdue_contracts(
     db: Session,

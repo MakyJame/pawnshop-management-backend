@@ -42,8 +42,11 @@ class PawnContractUpdate(BaseModel):
     )
 
     due_date: date | None = None
-    status: ContractStatus | None = None
-
+    #status: ContractStatus | None = None
+    
+    model_config = ConfigDict(
+        extra="forbid",
+    )
 
 class PawnContractResponse(BaseModel):
     id: int
