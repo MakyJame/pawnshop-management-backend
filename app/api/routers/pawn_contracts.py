@@ -17,6 +17,7 @@ from app.schemas.pawn_contract import (
 )
 
 from app.services.pawn_contract_service import (
+    PawnContractNotEditableError,
     DirectLiquidatedStatusUpdateNotAllowedError,
     LiquidationContractNotOverdueError,
     LiquidationGracePeriodNotExpiredError,
@@ -208,6 +209,15 @@ def update_pawn_contract_endpoint(
             status_code=status.HTTP_409_CONFLICT,
             detail="Pawn contract status transition is not allowed.",
         ) from error
+
+    except PawnContractNotEditableError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Pawn contract can only be edited "
+                "while it is active."
+        ),
+    ) from error
 
 @router.post(
     "/{contract_id}/liquidate",

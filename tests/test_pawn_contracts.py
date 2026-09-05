@@ -847,3 +847,231 @@ def test_liquidated_contract_cannot_be_redeemed(
     )
 
     assert response.status_code == 409
+
+def test_active_contract_can_update_due_date(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "due_date": "2026-10-22",
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert response.json()["due_date"] == "2026-10-22"
+
+def test_active_contract_can_update_monthly_interest_amount(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "monthly_interest_amount": 600000,
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert response.json()["monthly_interest_amount"] == "600000"
+
+def test_overdue_contract_cannot_update_due_date(
+    client: TestClient,
+    db_session,
+) -> None:
+    customer = create_customer_in_db(
+        db_session,
+        CustomerCreate(
+            name="Overdue Update Customer",
+            phone=unique_phone(),
+        ),
+    )
+
+    db_session.commit()
+    db_session.refresh(customer)
+
+    contract = create_new_pawn_contract(
+        db_session,
+        PawnContractCreate(
+            contract_code=unique_contract_code(),
+            customer_id=customer.id,
+            principal_amount=11000000,
+            monthly_interest_amount=550000,
+            start_date=date(2026, 7, 1),
+            due_date=date(2026, 8, 1),
+        ),
+    )
+
+    assert contract.status == ContractStatus.ACTIVE
+
+    mark_overdue_contracts(
+        db_session,
+        as_of_date=date(2026, 8, 2),
+    )
+
+    db_session.refresh(contract)
+
+    assert contract.status == ContractStatus.OVERDUE
+
+    response = client.patch(
+        f"/pawn-contracts/{contract.id}",
+        json={
+            "due_date": "2026-12-01",
+        },
+    )
+
+    assert response.status_code == 409
+
+    assert response.json() == {
+        "detail": (
+            "Pawn contract can only be edited "
+            "while it is active."
+        ),
+    }
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract.id}",
+    )
+
+    assert contract_response.status_code == 200
+    assert contract_response.json()["due_date"] == "2026-08-01"
+
+def test_overdue_contract_cannot_update_monthly_interest_amount(
+    client: TestClient,
+    db_session,
+) -> None:
+    customer = create_customer_in_db(
+        db_session,
+        CustomerCreate(
+            name="Overdue Interest Update Customer",
+            phone=unique_phone(),
+        ),
+    )
+
+    db_session.commit()
+    db_session.refresh(customer)
+
+    contract = create_new_pawn_contract(
+        db_session,
+        PawnContractCreate(
+            contract_code=unique_contract_code(),
+            customer_id=customer.id,
+            principal_amount=11000000,
+            monthly_interest_amount=550000,
+            start_date=date(2026, 7, 1),
+            due_date=date(2026, 8, 1),
+        ),
+    )
+
+    mark_overdue_contracts(
+        db_session,
+        as_of_date=date(2026, 8, 2),
+    )
+
+    db_session.refresh(contract)
+
+    assert contract.status == ContractStatus.OVERDUE
+
+    response = client.patch(
+        f"/pawn-contracts/{contract.id}",
+        json={
+            "monthly_interest_amount": 999999,
+        },
+    )
+
+    assert response.status_code == 409
+
+    assert response.json() == {
+        "detail": (
+            "Pawn contract can only be edited "
+            "while it is active."
+        ),
+    }
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract.id}",
+    )
+
+    assert contract_response.status_code == 200
+
+def test_redeemed_contract_cannot_update_due_date(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    redeem_response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 11000000,
+            "payment_date": "2026-08-22",
+        },
+    )
+
+    assert redeem_response.status_code == 201
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}",
+    )
+
+    assert contract_response.status_code == 200
+    assert contract_response.json()["status"] == "redeemed"
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "due_date": "2027-01-01",
+        },
+    )
+
+    assert response.status_code == 409
+
+    assert response.json() == {
+        "detail": (
+            "Pawn contract can only be edited "
+            "while it is active."
+        ),
+    }
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}",
+    )
+
+    assert contract_response.status_code == 200
+    assert contract_response.json()["due_date"] == "2026-09-22"
+
+def test_liquidated_contract_cannot_update_due_date(
+    client: TestClient,
+    db_session,
+) -> None:
+    contract_id = create_liquidated_contract(
+        db_session,
+    )
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "due_date": "2027-01-01",
+        },
+    )
+
+    assert response.status_code == 409
+
+    assert response.json() == {
+        "detail": (
+            "Pawn contract can only be edited "
+            "while it is active."
+        ),
+    }
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}",
+    )
+
+    assert contract_response.status_code == 200
+    assert contract_response.json()["status"] == "liquidated"
+    assert contract_response.json()["due_date"] == "2026-08-01"

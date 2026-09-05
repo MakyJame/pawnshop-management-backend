@@ -73,6 +73,12 @@ class LiquidationGracePeriodNotExpiredError(Exception):
 class DirectLiquidatedStatusUpdateNotAllowedError(Exception):
     pass
 
+class PawnContractNotEditableError(Exception):
+    pass
+
+class PawnContractNotEditableError(Exception):
+    pass
+
 def get_pawn_contract(
     db: Session,
     contract_id: int,
@@ -147,6 +153,10 @@ def update_existing_pawn_contract(
             contract.status,
             contract_data.status,
         )
+    
+    if contract.status != ContractStatus.ACTIVE:
+        raise PawnContractNotEditableError
+
 
     try:
         updated_contract = update_contract(
