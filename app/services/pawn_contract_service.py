@@ -57,12 +57,6 @@ class LiquidationGracePeriodNotExpiredError(Exception):
 class PawnContractNotEditableError(Exception):
     pass
 
-class PawnContractNotEditableError(Exception):
-    pass
-
-class PawnContractNotEditableError(Exception):
-    pass
-
 def get_pawn_contract(
     db: Session,
     contract_id: int,
