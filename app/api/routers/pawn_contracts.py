@@ -18,13 +18,9 @@ from app.schemas.pawn_contract import (
 
 from app.services.pawn_contract_service import (
     PawnContractNotEditableError,
-    #DirectLiquidatedStatusUpdateNotAllowedError,
     LiquidationContractNotOverdueError,
     LiquidationGracePeriodNotExpiredError,
     liquidate_contract,
-    #DirectOverdueStatusUpdateNotAllowedError,
-    #DirectRedeemedStatusUpdateNotAllowedError,
-    #InvalidPawnContractStatusError,
     PawnContractCodeAlreadyExistsError,
     PawnContractCustomerNotFoundError,
     PawnContractNotFoundError,
@@ -189,40 +185,6 @@ def update_pawn_contract_endpoint(
                 "while it is active."
             ),
         ) from error
-
-    #except DirectRedeemedStatusUpdateNotAllowedError as error:
-    #    raise HTTPException(
-    #    status_code=status.HTTP_409_CONFLICT,
-    #    detail=(
-    #        "Pawn contract must be redeemed through "
-    #        "the redemption endpoint."
-    #    ),
-    #) from error 
-
-    #except DirectOverdueStatusUpdateNotAllowedError as error:
-    #    raise HTTPException(
-    #    status_code=status.HTTP_409_CONFLICT,
-    #    detail=(
-    #        "Pawn contract overdue status "
-    #        "must be determined from due date."
-    #    ),
-    #) from error
-    
-    #except DirectLiquidatedStatusUpdateNotAllowedError as error:
-    #    raise HTTPException(
-    #        status_code=status.HTTP_409_CONFLICT,
-    #        detail=(
-    #            "Pawn contract must be liquidated through "
-    #            "the liquidation endpoint."
-    #        ),
-    #    ) from error
-
-
-    #except InvalidPawnContractStatusError as error:
-    #    raise HTTPException(
-    #        status_code=status.HTTP_409_CONFLICT,
-    #        detail="Pawn contract status transition is not allowed.",
-    #    ) from error
 
 @router.post(
     "/{contract_id}/liquidate",

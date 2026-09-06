@@ -19,9 +19,6 @@ from app.repositories.customer_repository import (
 )
 
 from app.schemas.customer import CustomerCreate
-#from app.main import app
-#lient = TestClient(app)
-
 
 def unique_phone() -> str:
     return f"09{str(uuid4().int)[-8:]}"
@@ -60,12 +57,11 @@ def create_contract(
             "principal_amount": 11000000,
             "monthly_interest_amount": 550000,
             "start_date": "2026-08-22",
-            "due_date": "2026-09-22",
         },
     )
 
     assert response.status_code == 201
-    
+
     return response.json()["id"]
 
 def create_liquidated_contract(
@@ -90,7 +86,6 @@ def create_liquidated_contract(
             principal_amount=11000000,
             monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
-            due_date=date(2026, 8, 1),
         ),
     )
 
@@ -125,13 +120,15 @@ def test_create_pawn_contract_success(
             "principal_amount": 11000000,
             "monthly_interest_amount": 550000,
             "start_date": "2026-08-03",
-            "due_date": "2026-09-03",
         },
     )
 
     assert response.status_code == 201
 
     data = response.json()
+    
+    assert data["start_date"] == "2026-08-03"
+    assert data["due_date"] == "2026-09-03"
 
     assert data["customer_id"] == customer_id
     assert data["status"] == "active"
@@ -149,7 +146,6 @@ def test_create_contract_with_assets_success(
             "principal_amount": 11000000,
             "monthly_interest_amount": 550000,
             "start_date": "2026-08-06",
-            "due_date": "2026-09-06",
             "assets": [
                 {
                     "asset_type": "motorcycle",
@@ -165,6 +161,9 @@ def test_create_contract_with_assets_success(
     assert response.status_code == 201
 
     data = response.json()
+
+    assert data["start_date"] == "2026-08-06"
+    assert data["due_date"] == "2026-09-06"
 
     assert data["customer_id"] == customer_id
     assert len(data["assets"]) == 1
@@ -183,7 +182,6 @@ def test_create_contract_requires_at_least_one_asset(
             "principal_amount": 11000000,
             "monthly_interest_amount": 550000,
             "start_date": "2026-08-06",
-            "due_date": "2026-09-06",
             "assets": [],
         },
     )
@@ -202,7 +200,7 @@ def test_create_contract_with_assets_rejects_pawned_license_plate(
         "principal_amount": 11000000,
         "monthly_interest_amount": 550000,
         "start_date": "2026-08-06",
-        "due_date": "2026-09-06",
+
         "assets": [
             {
                 "asset_type": "motorcycle",
@@ -241,7 +239,6 @@ def test_create_pawn_contract_rejects_missing_customer(
             "principal_amount": 11000000,
             "monthly_interest_amount": 550000,
             "start_date": "2026-08-03",
-            "due_date": "2026-09-03",
         },
     )
 
@@ -263,7 +260,6 @@ def test_create_pawn_contract_rejects_duplicate_code(
         "principal_amount": 11000000,
         "monthly_interest_amount": 550000,
         "start_date": "2026-08-03",
-        "due_date": "2026-09-03",
     }
 
     first_response = client.post(
@@ -279,9 +275,8 @@ def test_create_pawn_contract_rejects_duplicate_code(
     assert first_response.status_code == 201
     assert second_response.status_code == 409
 
-
-def test_create_pawn_contract_rejects_invalid_dates(
-    client: TestClient
+def test_create_pawn_contract_rejects_client_supplied_due_date(
+    client: TestClient,
 ) -> None:
     customer_id = create_customer(client)
 
@@ -293,12 +288,11 @@ def test_create_pawn_contract_rejects_invalid_dates(
             "principal_amount": 11000000,
             "monthly_interest_amount": 550000,
             "start_date": "2026-09-03",
-            "due_date": "2026-08-03",
+            "due_date": "2026-10-03",
         },
     )
 
     assert response.status_code == 422
-
 
 def test_get_missing_pawn_contract_returns_not_found(
     client: TestClient
@@ -322,13 +316,6 @@ def test_patch_contract_cannot_set_status_to_redeemed(
     )
 
     assert response.status_code == 422
-
-    #assert response.json() == {
-    #    "detail": (
-    #        "Pawn contract must be redeemed through "
-    #        "the redemption endpoint."
-    #    ),
-    #}
 
     contract_response = client.get(
         f"/pawn-contracts/{contract_id}"
@@ -365,19 +352,6 @@ def test_redeem_endpoint_is_allowed_to_set_redeemed_status(
 
     assert contract_response.json()["status"] == "redeemed"
 
-#def test_active_contract_can_be_marked_overdue(
-#    client: TestClient,
-#) -> None:
-#    contract_id = create_contract(client)
-#    response = client.patch(
-#        f"/pawn-contracts/{contract_id}",
-#        json={
-#            "status": "overdue",
-#        },
-#    )
-#    assert response.status_code == 200
-#    assert response.json()["status"] == "overdue"
-
 def test_overdue_contract_can_be_liquidated(
     db_session,
 ) -> None:
@@ -400,7 +374,6 @@ def test_overdue_contract_can_be_liquidated(
             principal_amount=11000000,
             monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
-            due_date=date(2026, 8, 1),
         ),
     )
 
@@ -443,7 +416,6 @@ def test_overdue_contract_cannot_return_to_active(
             principal_amount=11000000,
             monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
-            due_date=date(2026, 8, 1),
         ),
     )
 
@@ -464,9 +436,6 @@ def test_overdue_contract_cannot_return_to_active(
 
     assert response.status_code == 422
 
-    #assert response.json() == {
-    #    "detail": "Pawn contract status transition is not allowed.",
-    #}
 
 def test_liquidated_contract_cannot_change_status(
     client: TestClient,
@@ -519,15 +488,6 @@ def test_redeemed_contract_cannot_change_status(
 
     assert response.status_code == 422
 
-#def test_calculate_days_overdue_after_due_date() -> None:
-#    due_date = date(2026,8,20)
-#    as_of_date = date(2026,8,27)
-#    result = calculate_days_overdue(
-#        due_date,
-#        as_of_date,
-#    )
-#    assert result == 7
-
 def test_mark_overdue_contracts_marks_past_due_contract(
     db_session,
 ) -> None:
@@ -550,7 +510,6 @@ def test_mark_overdue_contracts_marks_past_due_contract(
             principal_amount=11000000,
             monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
-            due_date=date(2026, 8, 1),
         ),
     )
 
@@ -584,8 +543,7 @@ def test_mark_overdue_contracts_does_not_change_future_contract(
             customer_id=customer.id,
             principal_amount=11000000,
             monthly_interest_amount=550000,
-            start_date=date(2026, 7, 1),
-            due_date=date(2026, 8, 10),
+            start_date=date(2026, 7, 10),
         ),
     )
 
@@ -622,7 +580,6 @@ def test_mark_overdue_contracts_does_not_mark_due_today(
             principal_amount=11000000,
             monthly_interest_amount=550000,
             start_date=date(2026, 7, 22),
-            due_date=date(2026, 8, 22),
         ),
     )
 
@@ -747,13 +704,6 @@ def test_patch_contract_cannot_set_status_to_liquidated(
 
     assert response.status_code == 422
 
-    #assert response.json() == {
-    #    "detail": (
-    #        "Pawn contract must be liquidated through "
-    #        "the liquidation endpoint."
-    #    ),
-    #}
-
     contract_response = client.get(
         f"/pawn-contracts/{contract_id}"
     )
@@ -784,7 +734,6 @@ def test_liquidate_endpoint_success(
             principal_amount=11000000,
             monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
-            due_date=date(2026, 8, 1),
         ),
     )
 

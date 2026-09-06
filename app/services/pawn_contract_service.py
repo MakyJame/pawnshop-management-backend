@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 
 from app.models.pawn_contract import ContractStatus, PawnContract
 from app.models.pawn_asset import PawnAsset
@@ -28,16 +29,6 @@ from app.schemas.pawn_contract import (
 
 from app.schemas.pawn_asset import PawnAssetCreate
 
-#ALLOWED_STATUS_TRANSITIONS: dict[
-#    ContractStatus,
-#    set[ContractStatus],
-#] = {
-#    ContractStatus.ACTIVE: set(),
-#    ContractStatus.OVERDUE: set(),
-#    ContractStatus.REDEEMED: set(),
-#    ContractStatus.LIQUIDATED: set(),
-#}
-
 class PawnContractNotFoundError(Exception):
     pass
 
@@ -56,22 +47,12 @@ class InvalidPawnContractStatusError(Exception):
 class LicensePlateAlreadyPawnedError(Exception):
     pass
 
-#class DirectRedeemedStatusUpdateNotAllowedError(Exception):
-#    pass
-
-#class DirectOverdueStatusUpdateNotAllowedError(Exception):
-#    pass
-
 class LiquidationContractNotOverdueError(Exception):
     pass
 
 
 class LiquidationGracePeriodNotExpiredError(Exception):
     pass
-
-
-#class DirectLiquidatedStatusUpdateNotAllowedError(Exception):
-#    pass
 
 class PawnContractNotEditableError(Exception):
     pass
@@ -107,7 +88,7 @@ def create_new_pawn_contract(
     customer = get_customer_by_id(
         db,
         contract_data.customer_id,
-    )
+    )   
 
     if customer is None:
         raise PawnContractCustomerNotFoundError
@@ -119,11 +100,16 @@ def create_new_pawn_contract(
 
     if existing_contract is not None:
         raise PawnContractCodeAlreadyExistsError
-
+    
+    due_date = calculate_due_date(
+        contract_data.start_date,
+    )
+    
     try:
         contract = create_contract(
             db,
             contract_data,
+            due_date,
         )
 
         db.commit()
@@ -145,12 +131,6 @@ def update_existing_pawn_contract(
         contract_id,
     )
 
-    #if contract_data.status is not None:
-    #    validate_status_transition(
-    #        contract.status,
-    #        contract_data.status,
-    #    )
-    
     if contract.status != ContractStatus.ACTIVE:
         raise PawnContractNotEditableError
 
@@ -201,13 +181,19 @@ def create_pawn_contract_with_assets(
         if existing_asset is not None:
             raise LicensePlateAlreadyPawnedError
 
+    due_date = calculate_due_date(
+            contract_data.start_date,
+    )
+
     try:
+        
         contract_fields = contract_data.model_dump(
             exclude={"assets"},
         )
 
         contract = PawnContract(
             **contract_fields,
+            due_date=due_date,
         )
 
         db.add(contract)
@@ -229,26 +215,6 @@ def create_pawn_contract_with_assets(
     except Exception:
         db.rollback()
         raise
-
-#def validate_status_transition(
-#    current_status: ContractStatus,
-#    new_status: ContractStatus,
-#) -> None:
-#    if new_status == ContractStatus.REDEEMED:
-#        raise DirectRedeemedStatusUpdateNotAllowedError
-#
-#    if new_status == ContractStatus.OVERDUE:
-#        raise DirectOverdueStatusUpdateNotAllowedError
-#
-#    if new_status == ContractStatus.LIQUIDATED:
-#        raise DirectLiquidatedStatusUpdateNotAllowedError    
-#
-#    allowed_statuses = ALLOWED_STATUS_TRANSITIONS[
-#        current_status
-#    ]
-#
-#    if new_status not in allowed_statuses:
-#        raise InvalidPawnContractStatusError
 
 def mark_overdue_contracts(
     db: Session,
@@ -362,3 +328,9 @@ def liquidate_contract(
     except Exception:
         db.rollback()
         raise
+
+def calculate_due_date(
+    start_date: date,
+) -> date:
+    return start_date + relativedelta(months=1)
+

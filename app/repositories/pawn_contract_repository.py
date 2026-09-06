@@ -44,14 +44,14 @@ def list_contracts(
 def create_contract(
     db: Session,
     contract_data: PawnContractCreate,
+    due_date: date,
 ) -> PawnContract:
     contract = PawnContract(
         **contract_data.model_dump(),
+        due_date=due_date,
     )
 
     db.add(contract)
-    #db.commit()
-   # db.refresh(contract)
     db.flush()
 
     return contract
@@ -89,15 +89,3 @@ def list_active_contracts_past_due(
     )
 
     return list(db.scalars(statement).all())
-
-#def get_active_contract_by_license_plate(
-#    db: Session,
-#    license_plate: str,
-#) -> PawnContract | None:
-#    statement = select(PawnContract).where(
-#        PawnContract.license_plate == license_plate,
-#        PawnContract.status == ContractStatus.ACTIVE,
-#    )
-#
-#    return db.scalar(statement)
-
