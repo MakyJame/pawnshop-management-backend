@@ -137,21 +137,8 @@ def update_existing_pawn_contract(
         contract_id,
     )
 
-<<<<<<< HEAD
-    if contract_data.status is not None:
-        validate_status_transition(
-            contract.status,
-            contract_data.status,
-        )
-    
     if contract.status != ContractStatus.ACTIVE:
         raise PawnContractNotEditableError
-
-=======
-    if contract.status != ContractStatus.ACTIVE:
-        raise PawnContractNotEditableError
->>>>>>> practice/rebuild-backend
-
     try:
         updated_contract = update_contract(
             db,
