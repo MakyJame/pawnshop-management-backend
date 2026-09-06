@@ -853,7 +853,6 @@ def test_overdue_contract_cannot_update_due_date(
             principal_amount=11000000,
             monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
-            due_date=date(2026, 8, 1),
         ),
     )
 
