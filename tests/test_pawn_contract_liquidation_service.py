@@ -23,8 +23,6 @@ def unique_contract_code() -> str:
 
 def create_active_contract(
     db_session,
-    *,
-    due_date: date,
 ):
     customer = create_customer_in_db(
         db_session,
@@ -45,7 +43,6 @@ def create_active_contract(
             principal_amount=11000000,
             monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
-            due_date=due_date,
         ),
     )
 
@@ -56,7 +53,6 @@ def create_overdue_contract(
 ):
     contract = create_active_contract(
         db_session,
-        due_date=date(2026, 8, 1),
     )
 
     updated_contracts = mark_overdue_contracts(
@@ -74,7 +70,6 @@ def test_active_contract_cannot_be_liquidated(
 ) -> None:
     contract = create_active_contract(
         db_session,
-        due_date=date(2026, 8, 1),
     )
 
     assert contract.status == ContractStatus.ACTIVE

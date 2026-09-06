@@ -54,7 +54,6 @@ def create_contract(
             "principal_amount": 11000000,
             "monthly_interest_amount": 550000,
             "start_date": "2026-08-01",
-            "due_date": "2026-09-01",
         },
     )
 
@@ -654,7 +653,6 @@ def test_create_payment_rejects_liquidated_contract(
             principal_amount=11000000,
             monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
-            due_date=date(2026, 8, 1),
         ),
     )
 

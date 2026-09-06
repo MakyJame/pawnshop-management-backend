@@ -23,27 +23,19 @@ class PawnContractCreate(BaseModel):
     monthly_interest_amount: Decimal = Field(ge=0)
 
     start_date: date
-    due_date: date
 
-    @model_validator(mode="after")
-    def validate_dates(self) -> "PawnContractCreate":
-        if self.due_date <= self.start_date:
-            raise ValueError(
-                "due_date must be later than start_date"
-            )
-
-        return self
-
+    model_config = ConfigDict(
+        extra="forbid",
+    )
 
 class PawnContractUpdate(BaseModel):
     monthly_interest_amount: Decimal | None = Field(
         default=None,
         ge=0,
     )
-
-    due_date: date | None = None
-    status: ContractStatus | None = None
-
+    model_config = ConfigDict(
+        extra="forbid",
+    )
 
 class PawnContractResponse(BaseModel):
     id: int

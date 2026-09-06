@@ -47,7 +47,6 @@ def create_contract(
             "principal_amount": 11000000,
             "monthly_interest_amount": 550000,
             "start_date": "2026-08-03",
-            "due_date": "2026-09-03",
         },
     )
 
