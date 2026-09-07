@@ -112,6 +112,21 @@ def create_new_payment(
         db.rollback()
         raise
 
+def calculate_outstanding_principal(
+    principal_amount: Decimal,
+    total_principal_paid: Decimal,
+    total_redemption_paid: Decimal,
+) -> Decimal:
+    outstanding_principal = (
+        principal_amount
+        - total_principal_paid
+        - total_redemption_paid
+    )
+    if outstanding_principal < Decimal("0"):
+        return Decimal("0")
+    
+    return outstanding_principal
+
 def get_payment_summary(
     db: Session,
     contract_id: int,
@@ -142,11 +157,13 @@ def get_payment_summary(
         PaymentType.REDEMPTION,
     )
 
-    outstanding_principal = (
-            contract.principal_amount 
-            - total_principal_paid
-            - total_redemption_paid
+    outstanding_principal = calculate_outstanding_principal(
+        contract.principal_amount,
+        total_principal_paid,
+        total_redemption_paid,
     )
+
+
 
     if outstanding_principal < Decimal("0"):
         outstanding_principal = Decimal("0")
@@ -183,10 +200,17 @@ def redeem_contract(
         db,
         contract_id,
         PaymentType.PRINCIPAL,
-    ) 
-    outstanding_principal = (
-        contract.principal_amount
-        - total_principal_paid
+    )
+
+    total_redemption_paid = get_total_paid_by_type(
+        db,
+        contract.id,
+        PaymentType.REDEMPTION,
+    )
+    outstanding_principal = calculate_outstanding_principal(
+        contract.principal_amount,
+        total_principal_paid,
+        total_redemption_paid,
     )
 
     if redemption_data.amount != outstanding_principal:

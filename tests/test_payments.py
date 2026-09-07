@@ -17,6 +17,8 @@ from app.services.pawn_contract_service import (
     mark_overdue_contracts,
 )
 
+from app.services.payment_service import calculate_outstanding_principal
+
 def unique_phone() -> str:
     return f"09{str(uuid4().int)[-8:]}"
 
@@ -697,3 +699,19 @@ def test_create_payment_rejects_liquidated_contract(
             "and cannot receive payments."
         ),
     }
+
+def test_calculate_outstanding_principal() -> None:
+    result = calculate_outstanding_principal(
+        Decimal("11000000"),
+        Decimal("3000000"),
+        Decimal("0"),
+    )
+    assert result == Decimal("8000000")
+
+def test_calculate_outstanding_principal_never_goes_negative() -> None:
+    result = calculate_outstanding_principal(
+         Decimal("11000000"),
+        Decimal("9000000"),
+        Decimal("3000000"),
+    )
+    assert result == Decimal("0")
