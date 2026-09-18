@@ -9,6 +9,7 @@ from app.models.pawn_asset import PawnAsset
 from app.repositories.customer_repository import get_customer_by_id
 from app.repositories.pawn_contract_repository import (
     create_contract,
+    create_renewed_contract,
     get_contract_by_code,
     get_contract_by_id,
     list_contracts,
@@ -24,7 +25,8 @@ from app.schemas.pawn_contract import (
     PawnContractCreate,
     PawnContractUpdate,
     PawnContractResponse,
-    PawnContractWithAssetsCreate
+    PawnContractWithAssetsCreate,
+    PawnContractRenewCreate,
 )
 
 from app.schemas.pawn_asset import PawnAssetCreate
@@ -55,6 +57,9 @@ class LiquidationGracePeriodNotExpiredError(Exception):
     pass
 
 class PawnContractNotEditableError(Exception):
+    pass
+
+class PawnContractCannotBeRenewedError(Exception):
     pass
 
 def get_pawn_contract(
@@ -214,6 +219,63 @@ def create_pawn_contract_with_assets(
     except Exception:
         db.rollback()
         raise
+
+def renew_contract(
+    db: Session,
+    contract_id: int,
+    renewal_data: PawnContractRenewCreate,
+) -> PawnContract:
+    old_contract = get_contract_by_id(
+        db,
+        contract_id,
+    )
+    if old_contract is None:
+        raise PawnContractNotFoundError
+
+    if old_contract.status not in {
+        ContractStatus.ACTIVE,
+        ContractStatus.OVERDUE,
+    }:
+        raise PawnContractCannotBeRenewedError
+
+    try:
+        due_date = calculate_due_date(
+            renewal_data.start_date,
+        )
+
+        new_contract = create_renewed_contract(
+            db,
+            contract_code=renewal_data.contract_code,
+            customer_id=old_contract.customer_id,
+            principal_amount=renewal_data.principal_amount,
+            monthly_interest_amount=renewal_data.monthly_interest_amount,
+            start_date=renewal_data.start_date,
+            due_date=due_date,
+            previous_contract_id=old_contract.id,
+        )
+
+        for old_asset in old_contract.assets:
+            new_asset = PawnAsset(
+                contract_id=new_contract.id,
+                asset_type=old_asset.asset_type,
+                description=old_asset.description,
+                brand=old_asset.brand,
+                model_year=old_asset.model_year,
+                license_plate=old_asset.license_plate,
+            )
+            db.add(new_asset)
+
+        old_contract.status = ContractStatus.RENEWED
+
+        db.commit()
+        db.refresh(new_contract)
+        
+        return new_contract
+
+    except Exception:
+        db.rollback()
+        raise
+
 
 def mark_overdue_contracts(
     db: Session,

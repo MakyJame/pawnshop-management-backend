@@ -715,3 +715,245 @@ def test_calculate_outstanding_principal_never_goes_negative() -> None:
         Decimal("3000000"),
     )
     assert result == Decimal("0")
+
+def test_principal_payment_rejected_when_outstanding_is_zero(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    first_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 11000000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-22",
+        },
+    )
+
+    assert first_response.status_code == 201
+
+    second_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 100000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-23",
+        },
+    )
+
+    assert second_response.status_code == 409
+
+    assert second_response.json() == {
+    "detail": "Principal payment exceeds outstanding principal.",
+    }
+
+def test_redeem_contract_when_outstanding_principal_is_zero(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    principal_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 11000000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-22",
+        },
+    )
+
+    assert principal_response.status_code == 201
+
+    summary_response = client.get(
+        f"/pawn-contracts/{contract_id}/payment-summary"
+    )
+
+    summary = summary_response.json()
+
+    assert summary_response.status_code == 200
+    assert summary["contract_id"] == contract_id
+    assert summary["principal_amount"] == "11000000"
+    assert (
+        summary_response.json()["outstanding_principal"]
+        == "0"
+    )
+
+    redeem_response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 0,
+            "payment_date": "2026-08-23",
+        },
+    )
+
+    assert redeem_response.status_code == 201
+    assert redeem_response.json()["payment"] is None
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert contract_response.status_code == 200
+    assert contract_response.json()["status"] == "redeemed"
+
+def test_redeem_contract_rejects_zero_amount_when_outstanding_remains(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 0,
+            "payment_date": "2026-08-23",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Redemption amount must equal outstanding principal.",
+    }
+
+def test_redeem_contract_rejects_positive_amount_when_outstanding_is_zero(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    principal_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 11000000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-22",
+        },
+    )
+
+    assert principal_response.status_code == 201
+
+    redeem_response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 100000,
+            "payment_date": "2026-08-23",
+        },
+    )
+
+    assert redeem_response.status_code == 409
+
+    assert redeem_response.json() == {
+        "detail": "Redemption amount must equal outstanding principal.",
+    }
+
+def test_redeem_contract_after_partial_principal_payment(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    principal_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 3000000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-22",
+        },
+    )
+
+    assert principal_response.status_code == 201
+
+    redeem_response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 8000000,
+            "payment_date": "2026-08-23",
+        },
+    )
+
+    assert redeem_response.status_code == 201
+
+    data = redeem_response.json()
+
+    assert data["payment"] is not None
+    assert data["payment"]["amount"] == "8000000"
+    assert data["payment"]["payment_type"] == "redemption"
+
+    contract_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert contract_response.status_code == 200
+    assert contract_response.json()["status"] == "redeemed"
+
+def test_payment_summary_after_redemption_has_zero_outstanding(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    principal_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 3000000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-22",
+        },
+    )
+
+    assert principal_response.status_code == 201
+
+    redeem_response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 8000000,
+            "payment_date": "2026-08-23",
+        },
+    )
+
+    assert redeem_response.status_code == 201
+
+    summary_response = client.get(
+        f"/pawn-contracts/{contract_id}/payment-summary"
+    )
+
+    assert summary_response.status_code == 200
+
+    data = summary_response.json()
+
+    assert data["principal_amount"] == "11000000"
+    assert data["total_principal_paid"] == "3000000"
+    assert data["total_redemption_paid"] == "8000000"
+    assert data["outstanding_principal"] == "0"
+
+def test_create_payment_rejects_redeemed_contract(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    redeem_response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 11000000,
+            "payment_date": "2026-08-23",
+        },
+    )
+
+    assert redeem_response.status_code == 201
+
+    payment_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 100000,
+            "payment_type": "interest",
+            "payment_date": "2026-08-24",
+        },
+    )
+
+    assert payment_response.status_code == 409
+
+    assert payment_response.json() == {
+        "detail": "Pawn contract is closed and cannot receive payments.",
+    }

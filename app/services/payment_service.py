@@ -94,7 +94,16 @@ def create_new_payment(
                 contract.id,
                 PaymentType.PRINCIPAL,
         )
-        outstanding_principal = contract.principal_amount - total_principal_paid
+        total_redemption_paid = get_total_paid_by_type(
+                db,
+                contract.id,
+                PaymentType.REDEMPTION,
+        )
+        outstanding_principal = calculate_outstanding_principal(
+                contract.principal_amount,
+                total_principal_paid,
+                total_redemption_paid,
+        )
         if payment_data.amount > outstanding_principal: 
             raise PrincipalPaymentExceedsOutstandingError
     try:
@@ -215,6 +224,21 @@ def redeem_contract(
 
     if redemption_data.amount != outstanding_principal:
         raise RedemptionAmountMismatchError
+
+    if outstanding_principal == Decimal("0"):
+        try:
+            contract.status = ContractStatus.REDEEMED
+
+            db.commit()
+            db.refresh(contract)
+
+            return RedemptionResponse(
+                contract_id= contract.id,
+                payment=None,
+            )
+        except Exception:
+            db.rollback()
+            raise
 
     try:
         payment = create_payment(

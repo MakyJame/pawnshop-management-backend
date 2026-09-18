@@ -28,6 +28,20 @@ class PawnContractCreate(BaseModel):
         extra="forbid",
     )
 
+class PawnContractRenewCreate(BaseModel):
+    contract_code: str = Field(
+        min_length=1,
+        max_length=30,
+    )
+
+    principal_amount: Decimal = Field(gt=0)
+
+    monthly_interest_amount: Decimal = Field(ge=0)
+
+    start_date: date
+
+    model_config = ConfigDict(extra="forbid")
+
 class PawnContractUpdate(BaseModel):
     monthly_interest_amount: Decimal | None = Field(
         default=None,
@@ -46,6 +60,7 @@ class PawnContractResponse(BaseModel):
     start_date: date
     due_date: date
     status: ContractStatus
+    previous_contract_id: int | None
 
     model_config = ConfigDict(from_attributes=True)
 

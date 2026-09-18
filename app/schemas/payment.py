@@ -45,7 +45,7 @@ class PaymentSummary(BaseModel):
     outstanding_principal: Decimal
 
 class RedemptionCreate(BaseModel):
-    amount: Decimal = Field(gt=0)
+    amount: Decimal = Field(ge=0)
     payment_date: date
     note: str | None = Field(
         default=None,
@@ -54,6 +54,6 @@ class RedemptionCreate(BaseModel):
 
 class RedemptionResponse(BaseModel):
     contract_id: int
-    payment: PaymentResponse
+    payment: PaymentResponse | None
 #schema.payment
 

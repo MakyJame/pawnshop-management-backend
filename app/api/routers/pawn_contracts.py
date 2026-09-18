@@ -11,12 +11,14 @@ from app.schemas.pawn_contract import (
 )
 
 from app.schemas.pawn_contract import (
+    PawnContractRenewCreate,
     PawnContractWithAssetsCreate,
     PawnContractWithAssetsResponse,
     OverdueRefreshResponse,
 )
 
 from app.services.pawn_contract_service import (
+    PawnContractCannotBeRenewedError,
     PawnContractNotEditableError,
     LiquidationContractNotOverdueError,
     LiquidationGracePeriodNotExpiredError,
@@ -30,7 +32,8 @@ from app.services.pawn_contract_service import (
     get_pawn_contracts,
     update_existing_pawn_contract,
     create_pawn_contract_with_assets,
-     mark_overdue_contracts,
+    mark_overdue_contracts,
+    renew_contract,
 )
 
 
@@ -225,3 +228,31 @@ def liquidate_pawn_contract_endpoint(
             ),
         ) from error
 
+@router.post(
+    "/{contract_id}/renew",
+    response_model=PawnContractResponse,
+    status_code=status.HTTP_201_CREATED,
+) 
+def renew_existing_contract(
+    contract_id: int,
+    renewal_data: PawnContractRenewCreate,
+    db: Session = Depends(get_db),
+    ) -> PawnContractResponse:
+    try:
+        return renew_contract(
+            db,
+            contract_id,
+            renewal_data,
+        )
+    
+    except PawnContractNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Pawn contract not found.",
+    )
+
+    except PawnContractCannotBeRenewedError:
+        raise HTTPException(
+            status_code=409,
+            detail="Pawn contract cannot be renewed.",
+    )

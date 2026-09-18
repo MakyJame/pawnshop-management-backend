@@ -798,3 +798,155 @@ def test_liquidated_contract_cannot_be_redeemed(
 
     assert response.status_code == 409
 
+def test_renew_contract_success(
+    client: TestClient,
+) -> None:
+    old_contract_id = create_contract(client)
+    #old_customer_id = create_customer(client)i
+    response = client.post(
+        f"/pawn-contracts/{old_contract_id}/renew",
+        json={
+            "contract_code":"HD-RENEW-001",
+            "principal_amount":"1400000",
+            "monthly_interest_amount":"500000",
+            "start_date":"2026-09-10",
+        },
+    )
+
+    assert response.status_code == 201
+    
+    data = response.json()
+
+    assert data["status"] == "active"
+    assert data["previous_contract_id"] == old_contract_id
+    assert data["principal_amount"] == "1400000"
+
+    old_response = client.get(
+        f"/pawn-contracts/{old_contract_id}"
+    )
+
+    assert old_response.status_code == 200      
+    assert old_response.json()["status"] == "renewed"
+
+    #assert data["customer_id"] == old_customer_id
+    
+    assert data["due_date"] == "2026-10-10"
+
+def test_renew_contract_copies_assets(
+    client: TestClient,
+) -> None:
+    old_contract_id = create_contract(client)
+
+    old_asset_response = client.post(
+        f"/pawn-assets",
+        json={
+            "contract_id": old_contract_id,
+            "asset_type": "motorbike",
+            "description": "Air Blade",
+            "brand": "Honda",
+            "model_year": 2013,
+            "license_plate": "36D1-18610",
+        },
+    )
+
+    assert old_asset_response.status_code == 201
+
+    old_asset = old_asset_response.json()
+    old_asset_id = old_asset["id"]
+
+    renew_response = client.post(
+        f"/pawn-contracts/{old_contract_id}/renew",
+        json={
+            "contract_code": "HD-RENEW-ASSET-001",
+            "principal_amount": 14000000,
+            "monthly_interest_amount": 500000,
+            "start_date": "2026-09-10",
+        },
+    )
+
+    assert renew_response.status_code == 201
+
+    new_contract = renew_response.json()
+    new_contract_id = new_contract["id"]
+
+    new_assets_response = client.get(
+        f"/pawn-contracts/{new_contract_id}/assets"
+    )
+
+    assert new_assets_response.status_code == 200
+
+    new_assets = new_assets_response.json()
+
+    assert len(new_assets) == 1
+
+    new_asset = new_assets[0]
+
+    assert new_asset["asset_type"] == old_asset["asset_type"]
+    assert new_asset["description"] == old_asset["description"]
+    assert new_asset["brand"] == old_asset["brand"]
+    assert new_asset["model_year"] == old_asset["model_year"]
+    assert new_asset["license_plate"] == old_asset["license_plate"]
+
+    assert new_asset["id"] != old_asset_id
+    assert new_asset["contract_id"] == new_contract_id
+
+def test_redeemed_contract_cannot_be_renewed(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    redeem_response = client.post(
+        f"/pawn-contracts/{contract_id}/redeem",
+        json={
+            "amount": 11000000,
+            "payment_date": "2026-09-10",
+        },
+    )
+
+    assert redeem_response.status_code == 201
+
+    renew_response = client.post(
+        f"/pawn-contracts/{contract_id}/renew",
+        json={
+            "contract_code": "HD-RENEW-REDEEMED",
+            "principal_amount": 14000000,
+            "monthly_interest_amount": 500000,
+            "start_date": "2026-09-11",
+        },
+    )
+
+    assert renew_response.status_code == 409
+
+def test_liquidated_contract_cannot_be_renewed(
+    client: TestClient,
+    db_session,
+) -> None:
+    contract_id = create_contract(client)
+
+    mark_overdue_contracts(
+        db_session,
+        as_of_date=date(2026, 10, 11),
+    )
+    
+    liquidated_contract = liquidate_contract(
+        db_session,
+        contract_id,
+        as_of_date=date(2026,10,15),
+    )
+    
+    assert (
+        liquidated_contract.status
+        == ContractStatus.LIQUIDATED
+    )
+
+    renew_response = client.post(
+        f"/pawn-contracts/{contract_id}/renew",
+        json={
+            "contract_code": "HD-RENEW-LIQUIDATED",
+            "principal_amount": 14000000,
+            "monthly_interest_amount": 500000,
+            "start_date": "2026-10-16",
+        },
+    )
+
+    assert renew_response.status_code == 409
