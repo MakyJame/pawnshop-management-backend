@@ -23,7 +23,6 @@ from app.services.pawn_contract_service import (
     LiquidationContractNotOverdueError,
     LiquidationGracePeriodNotExpiredError,
     liquidate_contract,
-    PawnContractCodeAlreadyExistsError,
     PawnContractCustomerNotFoundError,
     PawnContractNotFoundError,
     LicensePlateAlreadyPawnedError,
@@ -87,12 +86,6 @@ def create_pawn_contract_with_assets_endpoint(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Customer not found.",
-        ) from error
-
-    except PawnContractCodeAlreadyExistsError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Pawn contract code already exists.",
         ) from error
 
     except LicensePlateAlreadyPawnedError as error:

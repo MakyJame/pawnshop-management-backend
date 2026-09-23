@@ -11,11 +11,6 @@ from app.schemas.pawn_asset import (
 )
 
 class PawnContractCreate(BaseModel):
-    contract_code: str = Field(
-        min_length=1,
-        max_length=30,
-    )
-
     customer_id: int = Field(gt=0)
 
     principal_amount: Decimal = Field(gt=0)
@@ -29,12 +24,7 @@ class PawnContractCreate(BaseModel):
     )
 
 class PawnContractRenewCreate(BaseModel):
-    contract_code: str = Field(
-        min_length=1,
-        max_length=30,
-    )
-
-    principal_amount: Decimal = Field(gt=0)
+    additional_amount: Decimal = Field(gt=0)
 
     monthly_interest_amount: Decimal = Field(ge=0)
 

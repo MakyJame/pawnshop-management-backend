@@ -55,12 +55,17 @@ def create_contract(
     db.add(contract)
     db.flush()
 
+    contract.contract_code = generate_contract_code(
+        contract.id,
+        contract.start_date,
+    )
+    db.flush()
+
     return contract
 
 def create_renewed_contract(
     db: Session,
       *,
-    contract_code: str,
     customer_id: int,
     principal_amount: Decimal,
     monthly_interest_amount: Decimal,
@@ -69,7 +74,6 @@ def create_renewed_contract(
     previous_contract_id: int,
 ) -> PawnContract:
     contract = PawnContract(
-        contract_code=contract_code,
         customer_id=customer_id,
         principal_amount=principal_amount,
         monthly_interest_amount=monthly_interest_amount,
@@ -78,6 +82,12 @@ def create_renewed_contract(
         previous_contract_id=previous_contract_id,
     )
     db.add(contract)
+    db.flush()
+    
+    contract.contract_code = generate_contract_code(
+        contract.id,
+        contract.start_date,
+    )
     db.flush()
 
     return contract
@@ -114,3 +124,10 @@ def list_active_contracts_past_due(
     )
 
     return list(db.scalars(statement).all())
+
+def generate_contract_code(
+    contract_id: int,
+    start_date: date,
+) -> str:
+    date_part = start_date.strftime("%Y%m%d")
+    return f"TL-{date_part}-{contract_id}"

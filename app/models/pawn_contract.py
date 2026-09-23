@@ -30,7 +30,7 @@ class PawnContract(Base):
     contract_code: Mapped[str] = mapped_column(
         String(30),
         unique=True,
-        nullable=False,
+        nullable=True,
         index=True,
     )
 

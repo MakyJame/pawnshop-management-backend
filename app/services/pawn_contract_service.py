@@ -5,12 +5,13 @@ from dateutil.relativedelta import relativedelta
 
 from app.models.pawn_contract import ContractStatus, PawnContract
 from app.models.pawn_asset import PawnAsset
+from app.models.payment import PaymentType
 
 from app.repositories.customer_repository import get_customer_by_id
 from app.repositories.pawn_contract_repository import (
     create_contract,
     create_renewed_contract,
-    get_contract_by_code,
+    generate_contract_code,
     get_contract_by_id,
     list_contracts,
     update_contract,
@@ -20,7 +21,9 @@ from app.repositories.pawn_contract_repository import (
 from app.repositories.pawn_asset_repository import (
     get_active_asset_by_license_plate,
 )
-
+from app.repositories.payment_repository import (
+    get_total_paid_by_type,
+)
 from app.schemas.pawn_contract import (
     PawnContractCreate,
     PawnContractUpdate,
@@ -31,6 +34,10 @@ from app.schemas.pawn_contract import (
 
 from app.schemas.pawn_asset import PawnAssetCreate
 
+from app.services.payment_service import (
+    calculate_outstanding_principal,
+)
+    
 class PawnContractNotFoundError(Exception):
     pass
 
@@ -98,14 +105,6 @@ def create_new_pawn_contract(
     if customer is None:
         raise PawnContractCustomerNotFoundError
 
-    existing_contract = get_contract_by_code(
-        db,
-        contract_data.contract_code,
-    )
-
-    if existing_contract is not None:
-        raise PawnContractCodeAlreadyExistsError
-    
     due_date = calculate_due_date(
         contract_data.start_date,
     )
@@ -165,14 +164,6 @@ def create_pawn_contract_with_assets(
     if customer is None:
         raise PawnContractCustomerNotFoundError
 
-    existing_contract = get_contract_by_code(
-        db,
-        contract_data.contract_code,
-    )
-
-    if existing_contract is not None:
-        raise PawnContractCodeAlreadyExistsError
-
     for asset_data in contract_data.assets:
         if asset_data.license_plate is None:
             continue
@@ -201,6 +192,13 @@ def create_pawn_contract_with_assets(
         )
 
         db.add(contract)
+        db.flush()
+        
+        contract.contract_code = generate_contract_code(
+            contract.id,
+            contract.start_date,
+        )
+        
         db.flush()
 
         for asset_data in contract_data.assets:
@@ -239,15 +237,34 @@ def renew_contract(
         raise PawnContractCannotBeRenewedError
 
     try:
+        total_principal_paid = get_total_paid_by_type(
+            db,
+            old_contract.id,
+            PaymentType.PRINCIPAL,
+        )
+        total_redemption_paid = get_total_paid_by_type(
+            db,
+            old_contract.id,
+            PaymentType.REDEMPTION
+        )
+        old_outstanding_principal = calculate_outstanding_principal(
+            old_contract.principal_amount,
+            total_principal_paid,
+            total_redemption_paid,
+        )
+        new_principal_amount = (
+            old_outstanding_principal
+            + renewal_data.additional_amount
+        )
+
         due_date = calculate_due_date(
             renewal_data.start_date,
         )
 
         new_contract = create_renewed_contract(
             db,
-            contract_code=renewal_data.contract_code,
             customer_id=old_contract.customer_id,
-            principal_amount=renewal_data.principal_amount,
+            principal_amount=new_principal_amount,
             monthly_interest_amount=renewal_data.monthly_interest_amount,
             start_date=renewal_data.start_date,
             due_date=due_date,

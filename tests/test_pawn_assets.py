@@ -42,7 +42,6 @@ def create_contract(
     response = client.post(
         "/pawn-contracts",
         json={
-            "contract_code": unique_contract_code(),
             "customer_id": customer_id,
             "principal_amount": 11000000,
             "monthly_interest_amount": 550000,
