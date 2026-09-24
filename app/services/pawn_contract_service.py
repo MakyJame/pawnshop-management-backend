@@ -274,8 +274,6 @@ def renew_contract(
         for old_asset in old_contract.assets:
             new_asset = PawnAsset(
                 contract_id=new_contract.id,
-                asset_type=old_asset.asset_type,
-                description=old_asset.description,
                 brand=old_asset.brand,
                 model_year=old_asset.model_year,
                 license_plate=old_asset.license_plate,

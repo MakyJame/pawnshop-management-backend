@@ -20,16 +20,6 @@ class PawnAsset(Base):
         index=True,
     )
 
-    asset_type: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False,
-    )
-
-    description: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-    )
-
     brand: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,

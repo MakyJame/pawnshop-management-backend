@@ -141,8 +141,6 @@ def test_create_contract_with_assets_success(
             "start_date": "2026-08-06",
             "assets": [
                 {
-                    "asset_type": "motorcycle",
-                    "description": "Honda Air Blade 2013",
                     "brand": "Honda",
                     "model_year": 2013,
                     "license_plate": unique_license_plate(),
@@ -160,7 +158,7 @@ def test_create_contract_with_assets_success(
 
     assert data["customer_id"] == customer_id
     assert len(data["assets"]) == 1
-    assert data["assets"][0]["asset_type"] == "motorcycle"
+    #assert data["assets"][0]["asset_type"] == "motorcycle"
 
     expected_contract_code = f"TL-20260806-{data['id']}"
     assert data["contract_code"] == expected_contract_code
@@ -197,8 +195,6 @@ def test_create_contract_with_assets_rejects_pawned_license_plate(
 
         "assets": [
             {
-                "asset_type": "motorcycle",
-                "description": "First motorcycle",
                 "license_plate": license_plate,
             }
         ],
@@ -799,8 +795,6 @@ def test_renew_contract_copies_assets(
         f"/pawn-assets",
         json={
             "contract_id": old_contract_id,
-            "asset_type": "motorbike",
-            "description": "Air Blade",
             "brand": "Honda",
             "model_year": 2013,
             "license_plate": "36D1-18610",
@@ -838,8 +832,6 @@ def test_renew_contract_copies_assets(
 
     new_asset = new_assets[0]
 
-    assert new_asset["asset_type"] == old_asset["asset_type"]
-    assert new_asset["description"] == old_asset["description"]
     assert new_asset["brand"] == old_asset["brand"]
     assert new_asset["model_year"] == old_asset["model_year"]
     assert new_asset["license_plate"] == old_asset["license_plate"]

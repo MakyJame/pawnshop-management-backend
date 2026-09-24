@@ -64,8 +64,6 @@ def test_create_pawn_asset_success(
         "/pawn-assets",
         json={
             "contract_id": contract_id,
-            "asset_type": "motorcycle",
-            "description": "Xe máy Air Blade đời 2013",
             "brand": "Air Blade",
             "model_year": 2013,
             "license_plate": license_plate,
@@ -78,7 +76,11 @@ def test_create_pawn_asset_success(
 
     assert data["contract_id"] == contract_id
     assert data["license_plate"] == license_plate
+    assert data["brand"] == "Air Blade"
+    assert data["model_year"] == 2013
 
+    assert "asset type" not in data
+    assert "brand" in data
 
 def test_create_pawn_asset_rejects_missing_contract(
     client: TestClient,
@@ -87,8 +89,6 @@ def test_create_pawn_asset_rejects_missing_contract(
         "/pawn-assets",
         json={
             "contract_id": 999999999,
-            "asset_type": "motorcycle",
-            "description": "Missing contract test",
             "brand": "Honda",
             "model_year": 2013,
             "license_plate": unique_license_plate(),
@@ -112,8 +112,6 @@ def test_create_pawn_asset_rejects_duplicate_active_license_plate(
         "/pawn-assets",
         json={
             "contract_id": first_contract_id,
-            "asset_type": "motorcycle",
-            "description": "First asset",
             "brand": "Honda",
             "model_year": 2013,
             "license_plate": license_plate,
@@ -124,8 +122,6 @@ def test_create_pawn_asset_rejects_duplicate_active_license_plate(
         "/pawn-assets",
         json={
             "contract_id": second_contract_id,
-            "asset_type": "motorcycle",
-            "description": "Second asset",
             "brand": "Honda",
             "model_year": 2014,
             "license_plate": license_plate,
@@ -158,8 +154,6 @@ def test_list_assets_by_contract(
         "/pawn-assets",
         json={
             "contract_id": contract_id,
-            "asset_type": "motorcycle",
-            "description": "Contract asset test",
             "brand": "Honda",
             "model_year": 2013,
             "license_plate": unique_license_plate(),

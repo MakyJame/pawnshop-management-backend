@@ -2,16 +2,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PawnAssetBase(BaseModel):
-    asset_type: str = Field(
-        min_length=2,
-        max_length=50,
-    )
-
-    description: str = Field(
-        min_length=2,
-        max_length=500,
-    )
-
     brand: str | None = Field(
         default=None,
         max_length=100,
@@ -47,18 +37,6 @@ class PawnAssetCreate(PawnAssetBase):
 
 
 class PawnAssetUpdate(BaseModel):
-    asset_type: str | None = Field(
-        default=None,
-        min_length=2,
-        max_length=50,
-    )
-
-    description: str | None = Field(
-        default=None,
-        min_length=2,
-        max_length=500,
-    )
-
     brand: str | None = Field(
         default=None,
         max_length=100,
@@ -74,18 +52,6 @@ class PawnAssetUpdate(BaseModel):
         default=None,
         max_length=30,
     )
-
-    #@field_validator("license_plate")
-    #@classmethod
-    #def normalize_license_plate(
-        #cls,
-        #value: str | None,
-    #) -> str | None:
-        #if value is None:
-            #return None
-
-        #return value.strip().upper().replace(" ", "")
-
 
 class PawnAssetResponse(PawnAssetBase):
     id: int
