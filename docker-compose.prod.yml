@@ -1,15 +1,13 @@
 services:
   db:
     image: postgres:16
-    container_name: pawn_management_db
 
-    environment:
+    environment: 
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    restart: always
-    ports:
-      - "5433:5432"
+
+    restart: unless-stopped
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -29,8 +27,6 @@ services:
       context: .
       dockerfile: Dockerfile
 
-    container_name: pawn_management_api
-
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
 
@@ -39,11 +35,10 @@ services:
         condition: service_healthy
 
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
 
-    restart: always
+    restart: unless-stopped
+
 
 volumes:
   postgres_data:
-    
-
