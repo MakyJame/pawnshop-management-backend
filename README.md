@@ -1,9 +1,9 @@
-Pawnshop Management Backend
+# Pawnshop Management Backend
 A production-deployed REST API for managing customers, pawn contracts, pawned assets, payments, and contract lifecycle workflows.
 Built with FastAPI, PostgreSQL, SQLAlchemy, and Alembic, with automated tests, Docker Compose, Nginx, HTTPS, and Cloudflare.
 This project is based on a real-world family pawnshop workflow and focuses on backend business rules rather than CRUD alone.
 
-Overview
+# Overview
 The system centralizes pawnshop data and enforces domain rules around contracts, pledged assets, payments, overdue handling, liquidation, redemption, and renewal.
 Domain relationships
 Customer
@@ -12,7 +12,7 @@ Customer
           ├── Pawn Assets
           └── Payments
 A customer can have pawn contracts. A contract contains the pawned assets and its payment history.
-Key Features
+# Key Features
 Customers
 - Create, retrieve, and list customers
 - Prevent duplicate customer phone numbers
@@ -48,8 +48,9 @@ Renewal and Liquidation
 - Copy pawned assets to the new contract
 - Link renewed contracts through the previous contract
 - Prevent invalid operations on terminal contract states
-Architecture
+# Architecture
 The application uses a layered backend structure:
+```text
 HTTP Request
      │
      ▼
@@ -62,7 +63,7 @@ HTTP concerns and error mapping
      │
      ▼
 Service
-business rules and transaction orchestration
+business rules and workflow orchestration
      │
      ▼
 Repository
@@ -73,7 +74,9 @@ SQLAlchemy
      │
      ▼
 PostgreSQL
-Project structure
+```
+## Project structure
+```text
 app/
 ├── api/
 │   └── routers/
@@ -107,7 +110,8 @@ app/
     ├── pawn_asset_service.py
     ├── pawn_contract_service.py
     └── payment_service.py
-Business Rules
+```
+# Business Rules
 Several values and state transitions are controlled by the backend rather than by API clients.
 Due date
 due_date = start_date + 1 calendar month
@@ -125,7 +129,7 @@ Redemption
 Redemption is an explicit workflow. If outstanding principal remains, the redemption amount must match the outstanding amount.
 Renewal
 Renewal creates a new contract, links it to the previous contract, carries forward outstanding principal, optionally adds additional principal, and copies the pawned assets.
-API Endpoints
+# API Endpoints
 Health
 GET  /health
 GET  /health/db
@@ -152,7 +156,7 @@ POST /payments
 GET  /payments/{payment_id}
 GET  /pawn-contracts/{contract_id}/payments
 GET  /pawn-contracts/{contract_id}/payment-summary
-Testing
+# Testing
 The project has automated tests covering API behavior and domain rules, including:
 - customer validation
 - duplicate active license plates
@@ -164,10 +168,12 @@ The project has automated tests covering API behavior and domain rules, includin
 - redemption
 - renewal
 Run the suite:
+```bash
 pytest -q
+```
 Current verified result:
 85 passed
-Tech Stack
+# Tech Stack
 Area	Technology
 API	Python 3.12, FastAPI, Pydantic
 Database	PostgreSQL 16
@@ -180,33 +186,48 @@ HTTPS / DNS proxy	Cloudflare
 Hosting	Vultr VPS
 
 
-Local Development
+# Local Development
 1. Clone the repository
+```bash
 git clone git@github.com:MakyJame/pawnshop-management-backend.git
 cd pawnshop-management-backend
+```
 2. Create a virtual environment
+```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+```
 3. Configure environment variables
 Create .env from the included example:
+```bash
 cp .env.example .env
+```
 Update the values for your local PostgreSQL environment. Do not commit real secrets.
 4. Start PostgreSQL
+```bash
 docker compose up -d db
+```
 5. Run migrations
+```bash
 alembic upgrade head
+```
 6. Start the API
+```bash
 uvicorn app.main:app --reload
+```
 Open:
 http://127.0.0.1:8000/docs
 7. Run tests
 Configure TEST_DATABASE_URL for a dedicated test database, then run:
+```bash
 pytest -q
+```
 The test setup recreates database tables. Use a dedicated test database, not a production database.
 
-Production Deployment
+# Production Deployment
 The application is deployed on a Vultr VPS using Docker Compose.
+```text
 Internet
    │
    ▼
@@ -224,18 +245,19 @@ Docker network
    │
    ▼
 PostgreSQL container
+```
 Production design:
 - Nginx is the public reverse proxy
 - FastAPI is published only on 127.0.0.1:8000 on the VPS
 - PostgreSQL has no public host port
 - UFW allows only the required public services
-- HTTPS is used between clients, Cloudflare, and the origin
+- HTTPS is enabled from clients to Cloudflare and from Cloudflare to the origin
 - production secrets are kept outside Git
 Production API:
 https://api.camdotuanly.site
 FastAPI documentation:
 https://api.camdotuanly.site/docs
-Current Scope
+# Current Scope
 The current backend MVP focuses on the core pawnshop domain and production deployment.
 Authentication and authorization are not implemented yet and are intentionally not presented as completed features.
 Potential next improvements:
@@ -244,5 +266,5 @@ Potential next improvements:
 - concurrency protection for financial operations
 - monitoring and alerting
 - automated database backups
-License
+# License
 MIT
