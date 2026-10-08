@@ -20,6 +20,42 @@ def test_create_customer_returns_created_customer(
 
     assert response.status_code == 201
 
+def test_create_customer_without_phone(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/customers",
+        json={
+            "name": "Customer Without Phone",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["phone"] is None
+
+def test_create_multiple_customers_without_phone(
+    client: TestClient,
+) -> None:
+    first_response = client.post(
+        "/customers",
+        json={
+            "name": "Customer Without Phone One",
+        },
+    )
+
+    second_response = client.post(
+        "/customers",
+        json={
+            "name": "Customer Without Phone Two",
+        },
+    )
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 201
+
+    assert first_response.json()["phone"] is None
+    assert second_response.json()["phone"] is None
+
 def test_create_customer_rejects_duplicate_phone(
     client: TestClient,
 ) -> None:

@@ -48,13 +48,14 @@ def create_new_customer(
     db: Session,
     customer_data: CustomerCreate,
 ) -> Customer:
-    existing_customer = get_customer_by_phone(
-        db,
-        customer_data.phone,
-    )
+    if customer_data.phone is not None:
+        existing_customer = get_customer_by_phone(
+            db,
+            customer_data.phone,
+        )
 
-    if existing_customer is not None:
-        raise CustomerPhoneAlreadyExistsError
+        if existing_customer is not None:
+            raise CustomerPhoneAlreadyExistsError
 
     return create_customer(
         db,

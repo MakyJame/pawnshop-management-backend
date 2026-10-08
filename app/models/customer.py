@@ -19,10 +19,10 @@ class Customer(Base):
         nullable=False,
     )
 
-    phone: Mapped[str] = mapped_column(
+    phone: Mapped[str | None] = mapped_column(
         String(20),
         unique=True,
-        nullable=False,
+        nullable=True,
         index=True,
     )
 
