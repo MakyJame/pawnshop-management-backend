@@ -33,6 +33,8 @@ class PawnContractRenewCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 class PawnContractUpdate(BaseModel):
+    customer_id: int = Field(gt=0)
+
     monthly_interest_amount: Decimal | None = Field(
         default=None,
         ge=0,
