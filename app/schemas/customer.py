@@ -7,10 +7,15 @@ class CustomerBase(BaseModel):
         max_length=100,
     )
 
-    phone: str | None = Field(
-        default=None,
+    phone: str = Field(
         min_length=8,
         max_length=20,
+    )
+
+    identity: str | None = Field(
+        default=None,
+        min_length=12,
+        max_length=15,
     )
 
 

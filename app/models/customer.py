@@ -18,11 +18,17 @@ class Customer(Base):
         String(100),
         nullable=False,
     )
-
-    phone: Mapped[str | None] = mapped_column(
-        String(20),
+    
+    identity: Mapped[str | None] = mapped_column(
+        String(15),
         unique=True,
         nullable=True,
+    )
+
+    phone: Mapped[str] = mapped_column(
+        String(20),
+        unique=True,
+        nullable=False,
         index=True,
     )
 
