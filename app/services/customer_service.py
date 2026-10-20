@@ -8,6 +8,7 @@ from app.repositories.customer_repository import (
     get_customer_by_phone,
     list_customers,
     update_customer,
+    get_customer_by_identity,
 )
 from app.schemas.customer import CustomerCreate, CustomerUpdate
 
@@ -19,6 +20,8 @@ class CustomerNotFoundError(Exception):
 class CustomerPhoneAlreadyExistsError(Exception):
     pass
 
+class CustomerIdentityAlreadyExistsError(Exception):
+    pass
 
 def get_customer(
     db: Session,
@@ -56,6 +59,15 @@ def create_new_customer(
     if existing_customer is not None:
         raise CustomerPhoneAlreadyExistsError
 
+    if customer_data.identity is not None:
+        existing_customer = get_customer_by_identity(
+            db,
+            customer_data.identity,
+    )
+
+        if existing_customer is not None:
+            raise CustomerIdentityAlreadyExistsError
+
     return create_customer(
         db,
         customer_data,
@@ -83,6 +95,18 @@ def update_existing_customer(
 
         if existing_customer is not None:
             raise CustomerPhoneAlreadyExistsError
+    
+    if (
+        customer_data.identity is not None
+        and customer_data.identity != customer.identity
+    ):
+        existing_customer = get_customer_by_identity(
+            db,
+            customer_data.identity,
+    )
+
+        if existing_customer is not None:
+            raise CustomerIdentityAlreadyExistsError
 
     return update_customer(
         db,

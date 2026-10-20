@@ -25,7 +25,11 @@ def upgrade() -> None:
     op.alter_column('customers', 'phone',
                existing_type=sa.VARCHAR(length=20),
                nullable=False)
-    op.create_unique_constraint(None, 'customers', ['identity'])
+    op.create_unique_constraint(
+    'uq_customers_identity',
+    'customers',
+    ['identity'],
+    )
     # ### end Alembic commands ###
 
 
@@ -35,7 +39,11 @@ def downgrade() -> None:
     # WARNING: constraint name is None; this directive will fail as
     # rendered.  Add a name, or use a naming convention; see
     # https://alembic.sqlalchemy.org/en/latest/naming.html
-    op.drop_constraint(None, 'customers', type_='unique')
+    op.drop_constraint(
+    'uq_customers_identity',
+    'customers',
+    type_='unique',
+    )
     op.alter_column('customers', 'phone',
                existing_type=sa.VARCHAR(length=20),
                nullable=True)
