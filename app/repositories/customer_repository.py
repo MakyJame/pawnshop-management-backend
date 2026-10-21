@@ -20,6 +20,15 @@ def get_customer_by_phone(
 
     return db.scalar(statement)
 
+def get_customer_by_identity(
+    db: Session,
+    identity: str,
+) -> Customer | None:
+    statement = select(Customer).where(
+        Customer.identity == identity
+    )
+
+    return db.scalar(statement)
 
 def list_customers(
     db: Session,

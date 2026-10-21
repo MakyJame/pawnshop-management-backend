@@ -14,7 +14,7 @@ class CustomerBase(BaseModel):
 
     identity: str | None = Field(
         default=None,
-        min_length=12,
+        min_length=8,
         max_length=15,
     )
 
