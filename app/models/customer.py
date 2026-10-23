@@ -20,7 +20,7 @@ class Customer(Base):
     )
     
     identity: Mapped[str | None] = mapped_column(
-        String(15),
+        String(12),
         unique=True,
         nullable=True,
     )

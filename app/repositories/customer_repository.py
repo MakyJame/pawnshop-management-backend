@@ -59,6 +59,18 @@ def create_customer(
 
     return customer
 
+def add_customer_without_commit(
+    db: Session,
+    customer_data: CustomerCreate,
+) -> Customer:
+    customer = Customer(
+        **customer_data.model_dump(),
+    )
+
+    db.add(customer)
+    db.flush()
+
+    return customer
 
 def update_customer(
     db: Session,

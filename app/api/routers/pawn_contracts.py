@@ -4,20 +4,21 @@ from sqlalchemy.orm import Session
 from datetime import date
 
 from app.db.session import get_db
+
 from app.schemas.pawn_contract import (
     PawnContractCreate,
     PawnContractResponse,
     PawnContractUpdate,
-)
-
-from app.schemas.pawn_contract import (
     PawnContractRenewCreate,
     PawnContractWithAssetsCreate,
     PawnContractWithAssetsResponse,
     OverdueRefreshResponse,
+    PawnContractWithCustomerAndAssetsCreate,
 )
 
 from app.services.pawn_contract_service import (
+    create_pawn_contract_with_customer_and_assets,
+    CustomerInformationConflictError,
     PawnContractCannotBeRenewedError,
     PawnContractNotEditableError,
     LiquidationContractNotOverdueError,
@@ -94,6 +95,33 @@ def create_pawn_contract_with_assets_endpoint(
             detail="License plate is already pawned.",
         ) from error
 
+@router.post(
+    "/with-customer-and-assets",
+    response_model=PawnContractWithAssetsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_contract_with_customer_and_assets_endpoint(
+    data: PawnContractWithCustomerAndAssetsCreate,
+    db: Session = Depends(get_db),
+) -> PawnContractWithAssetsResponse:
+
+    try:
+        return create_pawn_contract_with_customer_and_assets(
+            db,
+            data,
+        )
+
+    except CustomerInformationConflictError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(error),
+        ) from error
+
+    except LicensePlateAlreadyPawnedError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="License plate is already pawned.",
+        ) from error
 
 @router.get(
     "",

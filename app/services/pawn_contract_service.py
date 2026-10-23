@@ -7,7 +7,16 @@ from app.models.pawn_contract import ContractStatus, PawnContract
 from app.models.pawn_asset import PawnAsset
 from app.models.payment import PaymentType
 
-from app.repositories.customer_repository import get_customer_by_id
+from app.models.customer import Customer
+
+from app.schemas.customer import CustomerCreate
+
+from app.repositories.customer_repository import (
+    get_customer_by_id,
+    get_customer_by_phone,
+    get_customer_by_identity,
+    add_customer_without_commit,
+)
 from app.repositories.pawn_contract_repository import (
     create_contract,
     create_renewed_contract,
@@ -30,6 +39,7 @@ from app.schemas.pawn_contract import (
     PawnContractResponse,
     PawnContractWithAssetsCreate,
     PawnContractRenewCreate,
+    PawnContractWithCustomerAndAssetsCreate,
 )
 
 from app.schemas.pawn_asset import PawnAssetCreate
@@ -67,6 +77,9 @@ class PawnContractNotEditableError(Exception):
     pass
 
 class PawnContractCannotBeRenewedError(Exception):
+    pass
+
+class CustomerInformationConflictError(Exception):
     pass
 
 def get_pawn_contract(
@@ -410,3 +423,129 @@ def calculate_due_date(
 ) -> date:
     return start_date + relativedelta(months=1)
 
+def find_or_create_customer(
+    db: Session,
+    customer_data: CustomerCreate,
+) -> Customer:
+
+    customer_by_phone = get_customer_by_phone(
+        db,
+        customer_data.phone,
+    )
+
+    customer_by_identity = None
+
+    if customer_data.identity is not None:
+        customer_by_identity = get_customer_by_identity(
+            db,
+            customer_data.identity,
+        )
+
+    # CASE 1: Phone và identity thuộc hai Customer khác nhau
+    if (
+        customer_by_phone is not None
+        and customer_by_identity is not None
+        and customer_by_phone.id != customer_by_identity.id
+    ):
+        raise CustomerInformationConflictError(
+            "Phone and identity belong to different customers."
+        )
+
+    # CASE 2: Tìm thấy Customer cũ
+    existing_customer = (
+        customer_by_identity or customer_by_phone
+    )
+
+    if existing_customer is not None:
+
+        # Không tự động thay đổi tên
+        if existing_customer.name != customer_data.name:
+            raise CustomerInformationConflictError(
+                "Customer name does not match existing records."
+            )
+
+        # Không tự động thay đổi số điện thoại
+        if existing_customer.phone != customer_data.phone:
+            raise CustomerInformationConflictError(
+                "Customer phone does not match existing records."
+            )
+
+        # Không tự động thay đổi identity
+        if (
+            customer_data.identity is not None
+            and existing_customer.identity != customer_data.identity
+        ):
+            raise CustomerInformationConflictError(
+                "Customer identity does not match existing records."
+            )
+
+        return existing_customer
+
+    # CASE 3: Không tìm thấy Customer
+    return add_customer_without_commit(
+        db,
+        customer_data,
+    )
+
+def create_pawn_contract_with_customer_and_assets(
+    db: Session,
+    data: PawnContractWithCustomerAndAssetsCreate,
+) -> PawnContract:
+
+    try:
+        # 1. Kiểm tra các biển số xe đang được cầm
+        license_plates = [
+            asset.license_plate
+            for asset in data.assets
+            if asset.license_plate is not None
+        ]
+
+        # Không cho phép trùng biển số trong cùng request
+        if len(license_plates) != len(set(license_plates)):
+            raise LicensePlateAlreadyPawnedError
+
+        for license_plate in license_plates:
+            existing_asset = get_active_asset_by_license_plate(
+                db,
+                license_plate,
+            )
+
+            if existing_asset is not None:
+                raise LicensePlateAlreadyPawnedError
+
+        # 2. Tìm hoặc tạo Customer
+        customer = find_or_create_customer(
+            db,
+            data.customer,
+        )
+
+        # 3. Tạo PawnContract
+        contract_data = PawnContractCreate(
+            customer_id=customer.id,
+            **data.contract.model_dump(),
+        )
+
+        contract = create_contract(
+            db,
+            contract_data,
+            calculate_due_date(contract_data.start_date),
+        )
+
+        # 4. Tạo PawnAssets
+        for asset_data in data.assets:
+            asset = PawnAsset(
+                contract_id=contract.id,
+                **asset_data.model_dump(),
+            )
+
+            db.add(asset)
+
+        # 5. Commit tất cả cùng lúc
+        db.commit()
+        db.refresh(contract)
+
+        return contract
+
+    except Exception:
+        db.rollback()
+        raise

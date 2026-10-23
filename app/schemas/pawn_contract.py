@@ -9,6 +9,7 @@ from app.schemas.pawn_asset import (
     PawnAssetNestedCreate,
     PawnAssetResponse,
 )
+from app.schemas.customer import CustomerCreate
 
 class PawnContractCreate(BaseModel):
     customer_id: int = Field(gt=0)
@@ -33,7 +34,6 @@ class PawnContractRenewCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 class PawnContractUpdate(BaseModel):
-    customer_id: int = Field(gt=0)
 
     monthly_interest_amount: Decimal | None = Field(
         default=None,
@@ -71,3 +71,24 @@ class PawnContractWithAssetsResponse(PawnContractResponse):
 class OverdueRefreshResponse(BaseModel):
     updated_count: int
     contract_ids: list[int]
+
+class PawnContractDetailsCreate(BaseModel):
+    principal_amount: Decimal = Field(gt=0)
+
+    monthly_interest_amount: Decimal = Field(ge=0)
+
+    start_date: date
+
+    model_config = ConfigDict(extra="forbid")
+
+class PawnContractWithCustomerAndAssetsCreate(BaseModel):
+    customer: CustomerCreate
+
+    contract: PawnContractDetailsCreate
+
+    assets: list[PawnAssetNestedCreate] = Field(
+        min_length=1,
+        max_length=10,
+    )
+
+    model_config = ConfigDict(extra="forbid")

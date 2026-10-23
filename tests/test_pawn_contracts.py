@@ -20,6 +20,11 @@ from app.repositories.customer_repository import (
 
 from app.schemas.customer import CustomerCreate
 
+from sqlalchemy import select, func
+
+from app.models.pawn_contract import PawnContract
+from app.models.pawn_asset import PawnAsset
+
 def unique_phone() -> str:
     return f"09{str(uuid4().int)[-8:]}"
 
@@ -948,7 +953,7 @@ def test_renewed_contract_cannot_be_edited(
         },
     )
 
-    assert response.status_code == 409
+    assert response.status_code == 409, response.json()
 
 def test_renewed_contract_cannot_be_redeemed(
     client: TestClient,
@@ -1163,3 +1168,198 @@ def test_create_contract_rejects_client_supplied_contract_code(
     )
 
     assert data2["previous_contract_id"] == old_contract_id
+
+def test_create_contract_with_new_customer_and_assets(
+    client: TestClient,
+    db_session,
+) -> None:
+    phone = unique_phone()
+    license_plate = unique_license_plate()
+
+    response = client.post(
+        "/pawn-contracts/with-customer-and-assets",
+        json={
+            "customer": {
+                "name": "New Test Customer",
+                "phone": phone,
+            },
+            "contract": {
+                "principal_amount": 15000000,
+                "monthly_interest_amount": 450000,
+                "start_date": "2026-10-21",
+            },
+            "assets": [
+                {
+                    "brand": "Honda",
+                    "model_year": 2023,
+                    "license_plate": license_plate,
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 201, response.text
+
+    data = response.json()
+
+    assert data["customer_id"] is not None
+    assert data["start_date"] == "2026-10-21"
+    assert data["due_date"] == "2026-11-21"
+    assert len(data["assets"]) == 1
+    assert data["assets"][0]["license_plate"] == license_plate
+
+    from app.models.customer import Customer
+
+    customer = db_session.get(Customer, data["customer_id"])
+
+    assert customer is not None
+    assert customer.name == "New Test Customer"
+    assert customer.phone == phone
+
+def test_create_contract_reuses_existing_customer(
+    client: TestClient,
+) -> None:
+    phone = unique_phone()
+
+    customer_response = client.post(
+        "/customers",
+        json={
+            "name": "Existing Test Customer",
+            "phone": phone,
+        },
+    )
+
+    assert customer_response.status_code == 201
+
+    existing_customer_id = customer_response.json()["id"]
+
+    response = client.post(
+        "/pawn-contracts/with-customer-and-assets",
+        json={
+            "customer": {
+                "name": "Existing Test Customer",
+                "phone": phone,
+            },
+            "contract": {
+                "principal_amount": 15000000,
+                "monthly_interest_amount": 450000,
+                "start_date": "2026-10-21",
+            },
+            "assets": [
+                {
+                    "brand": "Honda",
+                    "model_year": 2023,
+                    "license_plate": unique_license_plate(),
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 201, response.text
+
+    data = response.json()
+
+    assert data["customer_id"] == existing_customer_id
+    assert len(data["assets"]) == 1
+
+def test_create_contract_rejects_customer_information_conflict(
+    client: TestClient,
+    db_session,
+) -> None:
+    phone = unique_phone()
+
+    customer_response = client.post(
+        "/customers",
+        json={
+            "name": "Nguyen Van A",
+            "phone": phone,
+        },
+    )
+
+    assert customer_response.status_code == 201
+
+    response = client.post(
+        "/pawn-contracts/with-customer-and-assets",
+        json={
+            "customer": {
+                "name": "Nguyen Van B",
+                "phone": phone,
+            },
+            "contract": {
+                "principal_amount": 15000000,
+                "monthly_interest_amount": 450000,
+                "start_date": "2026-10-21",
+            },
+            "assets": [
+                {
+                    "brand": "Honda",
+                    "model_year": 2023,
+                    "license_plate": unique_license_plate(),
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 409, response.text
+
+    contract_count = db_session.scalar(
+        select(func.count()).select_from(PawnContract)
+    )
+
+    asset_count = db_session.scalar(
+        select(func.count()).select_from(PawnAsset)
+    )
+
+    assert contract_count == 0
+    assert asset_count == 0
+
+def test_create_contract_with_customer_rejects_pawned_license_plate(
+    client: TestClient,
+    db_session,
+) -> None:
+    phone = unique_phone()
+    license_plate = unique_license_plate()
+
+    payload = {
+        "customer": {
+            "name": "License Plate Test Customer",
+            "phone": phone,
+        },
+        "contract": {
+            "principal_amount": 15000000,
+            "monthly_interest_amount": 450000,
+            "start_date": "2026-10-21",
+        },
+        "assets": [
+            {
+                "brand": "Honda",
+                "model_year": 2023,
+                "license_plate": license_plate,
+            }
+        ],
+    }
+
+    first_response = client.post(
+        "/pawn-contracts/with-customer-and-assets",
+        json=payload,
+    )
+
+    assert first_response.status_code == 201, first_response.text
+
+    second_response = client.post(
+        "/pawn-contracts/with-customer-and-assets",
+        json=payload,
+    )
+
+    assert second_response.status_code == 409, second_response.text
+
+    contract_count = db_session.scalar(
+        select(func.count()).select_from(PawnContract)
+    )
+
+    asset_count = db_session.scalar(
+        select(func.count()).select_from(PawnAsset)
+    )
+
+    assert contract_count == 1
+    assert asset_count == 1
