@@ -1363,3 +1363,124 @@ def test_create_contract_with_customer_rejects_pawned_license_plate(
 
     assert contract_count == 1
     assert asset_count == 1
+
+def test_get_pawn_contract_details_success(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.get(
+        f"/pawn-contracts/{contract_id}/details"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert set(data.keys()) == {
+        "contract",
+        "customer",
+        "assets",
+        "payments",
+        "payment_summary",
+    }
+
+    assert data["contract"]["id"] == contract_id
+
+    assert (
+        data["customer"]["id"]
+        == data["contract"]["customer_id"]
+    )
+
+    assert data["assets"] == []
+    assert data["payments"] == []
+
+    assert (
+        data["payment_summary"]["contract_id"]
+        == contract_id
+    )
+
+    assert (
+        data["payment_summary"]["outstanding_principal"]
+        == "11000000"
+    )
+
+def test_get_pawn_contract_details_not_found(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/pawn-contracts/999999/details"
+    )
+
+    assert response.status_code == 404
+
+    assert response.json() == {
+        "detail": "Pawn contract not found"
+    }
+
+def test_get_pawn_contract_details_invalid_id(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/pawn-contracts/abc/details"
+    )
+
+    assert response.status_code == 422
+
+    data = response.json()
+
+    assert "detail" in data
+
+def test_get_pawn_contract_details_with_payments(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    interest_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 550000,
+            "payment_type": "interest",
+            "payment_date": "2026-08-23",
+        },
+    )
+
+    assert interest_response.status_code == 201
+
+    principal_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 2000000,
+            "payment_type": "principal",
+            "payment_date": "2026-08-24",
+        },
+    )
+
+    assert principal_response.status_code == 201
+
+    response = client.get(
+        f"/pawn-contracts/{contract_id}/details"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data["payments"]) == 2
+
+    payment_types = {
+        payment["payment_type"]
+        for payment in data["payments"]
+    }
+
+    assert payment_types == {"interest", "principal"}
+
+    summary = data["payment_summary"]
+
+    assert summary["principal_amount"] == "11000000"
+    assert summary["total_interest_paid"] == "550000"
+    assert summary["total_principal_paid"] == "2000000"
+    assert summary["total_redemption_paid"] == "0"
+    assert summary["outstanding_principal"] == "9000000"

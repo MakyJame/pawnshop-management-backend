@@ -14,6 +14,7 @@ from app.schemas.pawn_contract import (
     PawnContractWithAssetsResponse,
     OverdueRefreshResponse,
     PawnContractWithCustomerAndAssetsCreate,
+    PawnContractDetailsResponse,
 )
 
 from app.services.pawn_contract_service import (
@@ -34,6 +35,7 @@ from app.services.pawn_contract_service import (
     create_pawn_contract_with_assets,
     mark_overdue_contracts,
     renew_contract,
+    get_pawn_contract_details,
 )
 
 
@@ -158,6 +160,22 @@ def refresh_overdue_contracts_endpoint(
         ],
     )
 
+@router.get(
+    "/{contract_id}/details",
+    response_model=PawnContractDetailsResponse,
+)
+def read_pawn_contract_details(
+    contract_id: int,
+    db: Session = Depends(get_db),
+):
+    try:
+        return get_pawn_contract_details(db, contract_id)
+
+    except PawnContractNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Pawn contract not found",
+        )
 
 @router.get(
     "/{contract_id}",

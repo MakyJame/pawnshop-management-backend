@@ -9,7 +9,8 @@ from app.schemas.pawn_asset import (
     PawnAssetNestedCreate,
     PawnAssetResponse,
 )
-from app.schemas.customer import CustomerCreate
+from app.schemas.customer import CustomerCreate, CustomerResponse
+from app.schemas.payment import PaymentResponse, PaymentSummary
 
 class PawnContractCreate(BaseModel):
     customer_id: int = Field(gt=0)
@@ -92,3 +93,10 @@ class PawnContractWithCustomerAndAssetsCreate(BaseModel):
     )
 
     model_config = ConfigDict(extra="forbid")
+
+class PawnContractDetailsResponse(BaseModel):
+    contract: PawnContractResponse
+    customer: CustomerResponse
+    assets: list[PawnAssetResponse]
+    payments: list[PaymentResponse]
+    payment_summary: PaymentSummary

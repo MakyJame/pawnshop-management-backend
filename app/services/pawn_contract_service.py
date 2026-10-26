@@ -40,12 +40,14 @@ from app.schemas.pawn_contract import (
     PawnContractWithAssetsCreate,
     PawnContractRenewCreate,
     PawnContractWithCustomerAndAssetsCreate,
+    PawnContractDetailsResponse,
 )
 
 from app.schemas.pawn_asset import PawnAssetCreate
 
 from app.services.payment_service import (
     calculate_outstanding_principal,
+    get_payment_summary,
 )
     
 class PawnContractNotFoundError(Exception):
@@ -93,6 +95,22 @@ def get_pawn_contract(
 
     return contract
 
+def get_pawn_contract_details(
+    db: Session,
+    contract_id: int,
+) -> PawnContractDetailsResponse:
+
+    contract = get_pawn_contract(db, contract_id)
+
+    payment_summary = get_payment_summary(db, contract_id)
+
+    return PawnContractDetailsResponse(
+        contract=contract,
+        customer=contract.customer,
+        assets=contract.assets,
+        payments=contract.payments,
+        payment_summary=payment_summary,
+    )
 
 def get_pawn_contracts(
     db: Session,
@@ -104,7 +122,6 @@ def get_pawn_contracts(
         offset=offset,
         limit=limit,
     )
-
 
 def create_new_pawn_contract(
     db: Session,
