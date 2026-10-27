@@ -21,12 +21,17 @@ class PawnAsset(Base):
     )
 
     brand: Mapped[str | None] = mapped_column(
-        String(100),
+        String(20),
         nullable=True,
     )
 
     model_year: Mapped[int | None] = mapped_column(
         Integer,
+        nullable=True,
+    )
+
+    owner_storage: Mapped[str | None] = mapped_column(
+        String(10),
         nullable=True,
     )
 

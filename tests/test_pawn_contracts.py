@@ -803,6 +803,8 @@ def test_renew_contract_copies_assets(
             "brand": "Honda",
             "model_year": 2013,
             "license_plate": "36D1-18610",
+            "owner_storage": "KHO_A",
+
         },
     )
 
@@ -840,6 +842,9 @@ def test_renew_contract_copies_assets(
     assert new_asset["brand"] == old_asset["brand"]
     assert new_asset["model_year"] == old_asset["model_year"]
     assert new_asset["license_plate"] == old_asset["license_plate"]
+
+    assert old_asset["owner_storage"] == "KHO_A"
+    assert new_asset["owner_storage"] == old_asset["owner_storage"]
 
     assert new_asset["id"] != old_asset_id
     assert new_asset["contract_id"] == new_contract_id
@@ -1484,3 +1489,5 @@ def test_get_pawn_contract_details_with_payments(
     assert summary["total_principal_paid"] == "2000000"
     assert summary["total_redemption_paid"] == "0"
     assert summary["outstanding_principal"] == "9000000"
+
+

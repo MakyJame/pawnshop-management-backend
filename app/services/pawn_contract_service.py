@@ -307,6 +307,7 @@ def renew_contract(
                 brand=old_asset.brand,
                 model_year=old_asset.model_year,
                 license_plate=old_asset.license_plate,
+                owner_storage=old_asset.owner_storage,
             )
             db.add(new_asset)
 

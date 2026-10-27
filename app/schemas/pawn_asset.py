@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class PawnAssetBase(BaseModel):
     brand: str | None = Field(
         default=None,
-        max_length=100,
+        max_length=20,
     )
 
     model_year: int | None = Field(
@@ -16,6 +16,10 @@ class PawnAssetBase(BaseModel):
     license_plate: str | None = Field(
         default=None,
         max_length=30,
+    )
+    owner_storage: str | None = Field(
+        default=None,
+        max_length=10,
     )
 
     @field_validator("license_plate")
@@ -51,6 +55,11 @@ class PawnAssetUpdate(BaseModel):
     license_plate: str | None = Field(
         default=None,
         max_length=30,
+    )
+
+    owner_storage: str | None = Field(
+        default=None,
+        max_length=10,
     )
 
 class PawnAssetResponse(PawnAssetBase):
