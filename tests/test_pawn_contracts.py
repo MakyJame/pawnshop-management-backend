@@ -1,3 +1,5 @@
+import pytest
+
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -24,6 +26,7 @@ from sqlalchemy import select, func
 
 from app.models.pawn_contract import PawnContract
 from app.models.pawn_asset import PawnAsset
+from app.models.customer import Customer
 
 def unique_phone() -> str:
     return f"09{str(uuid4().int)[-8:]}"
@@ -1266,6 +1269,185 @@ def test_create_contract_reuses_existing_customer(
 
     assert data["customer_id"] == existing_customer_id
     assert len(data["assets"]) == 1
+
+def test_create_contract_with_existing_customer_id(
+    client: TestClient,
+    db_session,
+) -> None:
+    # Arrange: Create an existing customer
+    phone = unique_phone()
+    customer_response = client.post(
+        "/customers",
+        json={
+            "name": "Customer By ID",
+            "phone": phone,
+        },
+    )
+
+    assert customer_response.status_code == 201
+
+    existing_customer_id = customer_response.json()["id"]
+
+    customers_before = db_session.scalar(
+        select(func.count()).select_from(Customer)
+    )
+
+    # Act: Create a pawn contract using customer_id
+    response = client.post(
+        "/pawn-contracts/with-customer-and-assets",
+        json={
+            "customer_id": existing_customer_id,
+            "contract": {
+                "principal_amount": 15000000,
+                "monthly_interest_amount": 450000,
+                "start_date": "2026-10-21",
+            },
+            "assets": [
+                {
+                    "brand": "Honda",
+                    "model_year": 2023,
+                    "license_plate": unique_license_plate(),
+                }
+            ],
+        },
+    )
+
+    # Assert: Verify the API response
+    assert response.status_code == 201, response.text
+    customers_after = db_session.scalar(
+        select(func.count()).select_from(Customer)
+    )
+    assert customers_after == customers_before
+
+    data = response.json()
+
+    assert data["customer_id"] == existing_customer_id
+    assert len(data["assets"]) == 1
+
+    # Assert: Verify the existing customer still exists
+
+    customer = db_session.get(Customer, existing_customer_id)
+
+    assert customer is not None
+    assert customer.name == "Customer By ID"
+    assert customer.phone == phone
+
+def test_create_contract_with_nonexistent_customer_id(
+    client: TestClient,
+) -> None:
+    # Arrange: Prepare a customer ID that does not exist
+    nonexistent_customer_id = 999999999
+
+    # Act: Attempt to create a contract
+    response = client.post(
+        "/pawn-contracts/with-customer-and-assets",
+        json={
+            "customer_id": nonexistent_customer_id,
+            "contract": {
+                "principal_amount": 15000000,
+                "monthly_interest_amount": 450000,
+                "start_date": "2026-10-21",
+            },
+            "assets": [
+                {
+                    "brand": "Honda",
+                    "model_year": 2023,
+                    "license_plate": unique_license_plate(),
+                }
+            ],
+        },
+    )
+
+    # Assert: Customer does not exist
+    assert response.status_code == 404, response.text
+
+def test_create_contract_rejects_both_customer_id_and_customer(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/pawn-contracts/with-customer-and-assets",
+        json={
+            "customer_id": 1,
+            "customer": {
+                "name": "Invalid Customer",
+                "phone": unique_phone(),
+            },
+            "contract": {
+                "principal_amount": 15000000,
+                "monthly_interest_amount": 450000,
+                "start_date": "2026-10-21",
+            },
+            "assets": [
+                {
+                    "brand": "Honda",
+                    "model_year": 2023,
+                    "license_plate": unique_license_plate(),
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 422, response.text
+
+def test_create_contract_rejects_missing_customer_selection(
+    client: TestClient,
+) -> None:
+    # Arrange & Act: Send a request without customer_id or customer
+    response = client.post(
+        "/pawn-contracts/with-customer-and-assets",
+        json={
+            "contract": {
+                "principal_amount": 15000000,
+                "monthly_interest_amount": 450000,
+                "start_date": "2026-10-21",
+            },
+            "assets": [
+                {
+                    "brand": "Honda",
+                    "model_year": 2023,
+                    "license_plate": unique_license_plate(),
+                }
+            ],
+        },
+    )
+
+    # Assert: Request validation must fail
+    assert response.status_code == 422, response.text
+
+@pytest.mark.parametrize("customer_id", [-1, 0])
+def test_create_contract_rejects_invalid_customer_id(
+    client: TestClient,
+    customer_id: int,
+) -> None:
+    # Arrange & Act
+    response = client.post(
+        "/pawn-contracts/with-customer-and-assets",
+        json={
+            "customer_id": customer_id,
+            "contract": {
+                "principal_amount": 15000000,
+                "monthly_interest_amount": 450000,
+                "start_date": "2026-10-21",
+            },
+            "assets": [
+                {
+                    "brand": "Honda",
+                    "model_year": 2023,
+                    "license_plate": unique_license_plate(),
+                }
+            ],
+        },
+    )
+
+    # Assert
+    assert response.status_code == 422, response.text
+
+    errors = response.json()["detail"]
+
+    assert any(
+        error["loc"] == ["body", "customer_id"]
+        for error in errors
+    )
 
 def test_create_contract_rejects_customer_information_conflict(
     client: TestClient,

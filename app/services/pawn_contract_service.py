@@ -531,11 +531,21 @@ def create_pawn_contract_with_customer_and_assets(
             if existing_asset is not None:
                 raise LicensePlateAlreadyPawnedError
 
-        # 2. Tìm hoặc tạo Customer
-        customer = find_or_create_customer(
-            db,
-            data.customer,
-        )
+        # 2. Tìm khách hàng cũ hoặc tìm/tạo khách hàng từ thông tin cá nhân
+        if data.customer_id is not None:
+            customer = get_customer_by_id(
+                db,
+                data.customer_id,
+            )
+
+            if customer is None:
+                raise PawnContractCustomerNotFoundError
+
+        else:
+            customer = find_or_create_customer(
+                db,
+                data.customer,
+            )
 
         # 3. Tạo PawnContract
         contract_data = PawnContractCreate(

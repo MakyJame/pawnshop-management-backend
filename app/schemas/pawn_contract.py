@@ -83,7 +83,12 @@ class PawnContractDetailsCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 class PawnContractWithCustomerAndAssetsCreate(BaseModel):
-    customer: CustomerCreate
+    customer_id: int | None = Field(
+        default=None,
+        gt=0,
+    )
+
+    customer: CustomerCreate | None = None
 
     contract: PawnContractDetailsCreate
 
@@ -93,6 +98,15 @@ class PawnContractWithCustomerAndAssetsCreate(BaseModel):
     )
 
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_customer_selection(self):
+        if (self.customer_id is None) == (self.customer is None):
+            raise ValueError(
+                "Provide exactly one of customer_id or customer"
+            )
+
+        return self
 
 class PawnContractDetailsResponse(BaseModel):
     contract: PawnContractResponse

@@ -51,7 +51,7 @@ def create_customer_endpoint(
 )
 def list_customers_endpoint(
     offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=1000, ge=1, le=1000),
     db: Session = Depends(get_db),
 ) -> list[CustomerResponse]:
     return get_customers(

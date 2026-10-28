@@ -34,7 +34,7 @@ def list_contracts(
 ) -> list[PawnContract]:
     statement = (
         select(PawnContract)
-        .order_by(PawnContract.id.desc())
+        .order_by(PawnContract.id)
         .offset(offset)
         .limit(limit)
     )
