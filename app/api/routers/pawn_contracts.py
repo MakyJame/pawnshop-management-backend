@@ -15,10 +15,10 @@ from app.schemas.pawn_contract import (
     OverdueRefreshResponse,
     PawnContractWithCustomerAndAssetsCreate,
     PawnContractDetailsResponse,
+    PawnContractSearchResponse,
 )
 
 from app.services.pawn_contract_service import (
-    create_pawn_contract_with_customer_and_assets,
     CustomerInformationConflictError,
     PawnContractCannotBeRenewedError,
     PawnContractNotEditableError,
@@ -36,6 +36,8 @@ from app.services.pawn_contract_service import (
     mark_overdue_contracts,
     renew_contract,
     get_pawn_contract_details,
+    create_pawn_contract_with_customer_and_assets,
+    search_pawn_contracts_by_license_plate,
 )
 
 
@@ -141,6 +143,34 @@ def list_pawn_contracts_endpoint(
 ) -> list[PawnContractResponse]:
     return get_pawn_contracts(
         db,
+        offset=offset,
+        limit=limit,
+    )
+
+@router.get(
+    "/search",
+    response_model=list[PawnContractSearchResponse],
+)
+def search_pawn_contracts_endpoint(
+    license_plate: str = Query(
+        ...,
+        min_length=1,
+        max_length=30,
+    ),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> list[PawnContractSearchResponse]:
+
+    if not license_plate.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="License plate must not be empty.",
+        )
+
+    return search_pawn_contracts_by_license_plate(
+        db,
+        license_plate=license_plate,
         offset=offset,
         limit=limit,
     )

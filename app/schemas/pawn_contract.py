@@ -114,3 +114,17 @@ class PawnContractDetailsResponse(BaseModel):
     assets: list[PawnAssetResponse]
     payments: list[PaymentResponse]
     payment_summary: PaymentSummary
+
+class PawnContractSearchResponse(BaseModel):
+    contract_id: int
+    contract_code: str
+    status: ContractStatus
+
+    customer_id: int
+    customer_name: str
+    customer_phone: str
+
+    asset_id: int
+    license_plate: str
+
+    model_config = ConfigDict(from_attributes=True)

@@ -25,6 +25,8 @@ from app.repositories.pawn_contract_repository import (
     list_contracts,
     update_contract,
     list_active_contracts_past_due,
+    search_contracts_by_license_plate,
+
 )
 
 from app.repositories.pawn_asset_repository import (
@@ -41,6 +43,7 @@ from app.schemas.pawn_contract import (
     PawnContractRenewCreate,
     PawnContractWithCustomerAndAssetsCreate,
     PawnContractDetailsResponse,
+    PawnContractSearchResponse,
 )
 
 from app.schemas.pawn_asset import PawnAssetCreate
@@ -122,6 +125,30 @@ def get_pawn_contracts(
         offset=offset,
         limit=limit,
     )
+
+def search_pawn_contracts_by_license_plate(
+    db: Session,
+    license_plate: str,
+    offset: int = 0,
+    limit: int = 20,
+) -> list[PawnContractSearchResponse]:
+
+    normalized_plate = license_plate.strip()
+
+    if not normalized_plate:
+        raise ValueError("License plate must not be empty")
+
+    rows = search_contracts_by_license_plate(
+        db,
+        license_plate=normalized_plate,
+        offset=offset,
+        limit=limit,
+    )
+
+    return [
+        PawnContractSearchResponse.model_validate(row)
+        for row in rows
+    ]
 
 def create_new_pawn_contract(
     db: Session,

@@ -2,6 +2,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.pawn_contract import PawnContract, ContractStatus
+from app.models.pawn_asset import PawnAsset
+from app.models.customer import Customer
+
 from app.schemas.pawn_contract import (
     PawnContractCreate,
     PawnContractUpdate,
@@ -131,3 +134,59 @@ def generate_contract_code(
 ) -> str:
     date_part = start_date.strftime("%Y%m%d")
     return f"TL-{date_part}-{contract_id}"
+
+def search_contracts_by_license_plate(
+    db: Session,
+    license_plate: str,
+    offset: int = 0,
+    limit: int = 20,
+) -> list[dict]:
+
+    escaped_plate = (
+        license_plate
+        .replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+    )
+
+    pattern = f"%{escaped_plate}%"
+
+    statement = (
+        select(
+            PawnContract.id.label("contract_id"),
+            PawnContract.contract_code,
+            PawnContract.status,
+
+            Customer.id.label("customer_id"),
+            Customer.name.label("customer_name"),
+            Customer.phone.label("customer_phone"),
+
+            PawnAsset.id.label("asset_id"),
+            PawnAsset.license_plate,
+        )
+        .select_from(PawnAsset)
+        .join(
+            PawnContract,
+            PawnAsset.contract_id == PawnContract.id,
+        )
+        .join(
+            Customer,
+            PawnContract.customer_id == Customer.id,
+        )
+        .where(
+            PawnAsset.license_plate.ilike(
+                pattern,
+                escape="\\",
+            )
+        )
+        .order_by(
+            PawnContract.id.desc(),
+            PawnAsset.id.desc(),
+        )
+        .offset(offset)
+        .limit(limit)
+    )
+
+    results = db.execute(statement).mappings().all()
+
+    return [dict(row) for row in results]
