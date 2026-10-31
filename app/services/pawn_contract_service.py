@@ -167,10 +167,15 @@ def create_new_pawn_contract(
     )
     
     try:
+        monthly_interest_amount = calculate_monthly_interest(
+            contract_data.principal_amount
+        )
+
         contract = create_contract(
             db,
             contract_data,
             due_date,
+            monthly_interest_amount=monthly_interest_amount,
         )
 
         db.commit()
@@ -238,13 +243,20 @@ def create_pawn_contract_with_assets(
     )
 
     try:
-        
+        monthly_interest_amount = calculate_monthly_interest(
+            contract_data.principal_amount
+        )
+
         contract_fields = contract_data.model_dump(
-            exclude={"assets"},
+            exclude={
+                "assets",
+                "monthly_interest_amount",
+            },
         )
 
         contract = PawnContract(
             **contract_fields,
+            monthly_interest_amount=monthly_interest_amount,
             due_date=due_date,
         )
 
@@ -314,6 +326,11 @@ def renew_contract(
             + renewal_data.additional_amount
         )
 
+        # Calculate interest based on the new principal
+        monthly_interest_amount = calculate_monthly_interest(
+            new_principal_amount
+        )
+
         due_date = calculate_due_date(
             renewal_data.start_date,
         )
@@ -322,7 +339,7 @@ def renew_contract(
             db,
             customer_id=old_contract.customer_id,
             principal_amount=new_principal_amount,
-            monthly_interest_amount=renewal_data.monthly_interest_amount,
+            monthly_interest_amount=monthly_interest_amount,
             start_date=renewal_data.start_date,
             due_date=due_date,
             previous_contract_id=old_contract.id,
@@ -575,15 +592,25 @@ def create_pawn_contract_with_customer_and_assets(
             )
 
         # 3. Tạo PawnContract
+
+        monthly_interest_amount = calculate_monthly_interest(
+                data.contract.principal_amount
+        )
+
+        contract_fields = data.contract.model_dump(
+            exclude={"monthly_interest_amount"},
+        )
+
         contract_data = PawnContractCreate(
             customer_id=customer.id,
-            **data.contract.model_dump(),
+            **contract_fields,
         )
 
         contract = create_contract(
             db,
             contract_data,
             calculate_due_date(contract_data.start_date),
+            monthly_interest_amount=monthly_interest_amount,
         )
 
         # 4. Tạo PawnAssets

@@ -17,8 +17,6 @@ class PawnContractCreate(BaseModel):
 
     principal_amount: Decimal = Field(gt=0)
 
-    monthly_interest_amount: Decimal = Field(ge=0)
-
     start_date: date
 
     model_config = ConfigDict(
@@ -28,21 +26,43 @@ class PawnContractCreate(BaseModel):
 class PawnContractRenewCreate(BaseModel):
     additional_amount: Decimal = Field(gt=0)
 
-    monthly_interest_amount: Decimal = Field(ge=0)
-
     start_date: date
 
     model_config = ConfigDict(extra="forbid")
 
 class PawnContractUpdate(BaseModel):
-
-    monthly_interest_amount: Decimal | None = Field(
+    customer_id: int | None = Field(
         default=None,
-        ge=0,
+        gt=0,
     )
-    model_config = ConfigDict(
-        extra="forbid",
+
+    principal_amount: Decimal | None = Field(
+        default=None,
+        gt=0,
     )
+
+    start_date: date | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_update_fields(self):
+        update_data = self.model_dump(
+            exclude_unset=True,
+        )
+
+        if not update_data:
+            raise ValueError(
+                "At least one field must be provided."
+            )
+
+        for field, value in update_data.items():
+            if value is None:
+                raise ValueError(
+                    f"{field} cannot be null."
+                )
+
+        return self
 
 class PawnContractResponse(BaseModel):
     id: int
@@ -75,8 +95,6 @@ class OverdueRefreshResponse(BaseModel):
 
 class PawnContractDetailsCreate(BaseModel):
     principal_amount: Decimal = Field(gt=0)
-
-    monthly_interest_amount: Decimal = Field(ge=0)
 
     start_date: date
 

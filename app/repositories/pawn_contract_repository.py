@@ -49,9 +49,17 @@ def create_contract(
     db: Session,
     contract_data: PawnContractCreate,
     due_date: date,
+    *,
+    monthly_interest_amount: Decimal,
 ) -> PawnContract:
+
+    contract_fields = contract_data.model_dump(
+        exclude={"monthly_interest_amount"},
+    )
+
     contract = PawnContract(
-        **contract_data.model_dump(),
+        **contract_fields,
+        monthly_interest_amount=monthly_interest_amount,
         due_date=due_date,
     )
 
