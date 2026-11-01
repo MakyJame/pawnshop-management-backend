@@ -19,6 +19,7 @@ from app.schemas.pawn_contract import (
 )
 
 from app.services.pawn_contract_service import (
+    PawnContractHasPaymentsError,
     CustomerInformationConflictError,
     PawnContractCannotBeRenewedError,
     PawnContractNotEditableError,
@@ -261,6 +262,12 @@ def update_pawn_contract_endpoint(
                 "Pawn contract can only be edited "
                 "while it is active."
             ),
+        ) from error
+
+    except PawnContractHasPaymentsError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Pawn contract cannot be edited because it already has payments.",
         ) from error
 
 @router.post(

@@ -1,5 +1,5 @@
 #repo.payment
-from sqlalchemy import select, func
+from sqlalchemy import select, func, exists
 from sqlalchemy.orm import Session
 
 from app.models.payment import Payment, PaymentType
@@ -30,6 +30,18 @@ def list_payments_by_contract(
     return list(
         db.scalars(statement).all()
     )
+
+def has_payments_for_contract(
+    db: Session,
+    contract_id: int,
+) -> bool:
+    statement = select(
+        exists().where(
+            Payment.contract_id == contract_id
+        )
+    )
+
+    return bool(db.scalar(statement))
 
 def create_payment(
     db: Session,    

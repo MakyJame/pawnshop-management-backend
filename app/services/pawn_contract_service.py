@@ -34,6 +34,7 @@ from app.repositories.pawn_asset_repository import (
 )
 from app.repositories.payment_repository import (
     get_total_paid_by_type,
+    has_payments_for_contract,
 )
 from app.schemas.pawn_contract import (
     PawnContractCreate,
@@ -79,6 +80,9 @@ class LiquidationGracePeriodNotExpiredError(Exception):
     pass
 
 class PawnContractNotEditableError(Exception):
+    pass
+
+class PawnContractHasPaymentsError(Exception):
     pass
 
 class PawnContractCannotBeRenewedError(Exception):
@@ -199,6 +203,19 @@ def update_existing_pawn_contract(
 
     if contract.status != ContractStatus.ACTIVE:
         raise PawnContractNotEditableError
+
+    if has_payments_for_contract(db, contract.id):
+        raise PawnContractHasPaymentsError
+
+    if "customer_id" in contract_data.model_fields_set:
+        customer = get_customer_by_id(
+            db,
+            contract_data.customer_id,
+        )
+
+        if customer is None:
+            raise PawnContractCustomerNotFoundError
+
     try:
         updated_contract = update_contract(
             db,
