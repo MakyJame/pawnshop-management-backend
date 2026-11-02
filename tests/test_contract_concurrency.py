@@ -1,53 +1,39 @@
 import time
-
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from decimal import Decimal
+from threading import Event
+from uuid import uuid4
 
 import pytest
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.exc import OperationalError
 
+import app.services.pawn_contract_service as contract_service
 from app.models.customer import Customer
 from app.models.pawn_contract import PawnContract
-from app.repositories.pawn_contract_repository import (
-    get_contract_by_id_for_update,
-)
-
-from tests.conftest import TestingSessionLocal
-
-from concurrent.futures import ThreadPoolExecutor
-from threading import Event
-
-from sqlalchemy import func, select, text, delete
-
 from app.models.payment import Payment, PaymentType
-from app.schemas.payment import PaymentCreate
+from app.repositories.pawn_contract_repository import get_contract_by_id_for_update
 from app.schemas.pawn_contract import PawnContractUpdate
-from app.services.payment_service import create_new_payment
+from app.schemas.payment import PaymentCreate
 from app.services.pawn_contract_service import (
     PawnContractHasPaymentsError,
     update_existing_pawn_contract,
 )
-import app.services.pawn_contract_service as contract_service
+from app.services.payment_service import create_new_payment
+from tests.conftest import TestingSessionLocal
 
-from uuid import uuid4
 
-def test_contract_row_lock_blocks_second_transaction():
-    session_a = TestingSessionLocal()
-    session_b = TestingSessionLocal()
-
-    contract_id = None
-
-    try:
-        # --------------------------------------------------
-        # 1. Prepare committed test data
-        # --------------------------------------------------
+@pytest.fixture
+def committed_contract():
+    with TestingSessionLocal() as session:
         customer = Customer(
             name="Concurrency Test Customer",
-            phone="0900000999",
+            phone=f"09{uuid4().hex[:10]}",
         )
 
-        session_a.add(customer)
-        session_a.flush()
+        session.add(customer)
+        session.flush()
 
         contract = PawnContract(
             customer_id=customer.id,
@@ -57,10 +43,45 @@ def test_contract_row_lock_blocks_second_transaction():
             due_date=date(2026, 12, 1),
         )
 
-        session_a.add(contract)
-        session_a.commit()
+        session.add(contract)
+        session.flush()
 
+        customer_id = customer.id
         contract_id = contract.id
+
+        session.commit()
+
+    try:
+        yield contract_id
+    finally:
+        with TestingSessionLocal() as cleanup_session:
+            cleanup_session.execute(
+                delete(Payment).where(
+                    Payment.contract_id == contract_id
+                )
+            )
+
+            cleanup_session.execute(
+                delete(PawnContract).where(
+                    PawnContract.id == contract_id
+                )
+            )
+
+            cleanup_session.execute(
+                delete(Customer).where(
+                    Customer.id == customer_id
+                )
+            )
+
+            cleanup_session.commit()
+
+
+def test_contract_row_lock_blocks_second_transaction(committed_contract):
+    session_a = TestingSessionLocal()
+    session_b = TestingSessionLocal()
+
+    try:
+        contract_id = committed_contract
 
         # --------------------------------------------------
         # 2. Transaction A acquires the row lock
@@ -114,38 +135,15 @@ def test_contract_row_lock_blocks_second_transaction():
         session_b.close()
         session_a.close()
 
-def test_payment_blocks_concurrent_contract_patch():
+
+def test_payment_blocks_concurrent_contract_patch(committed_contract):
     payment_lock_acquired = Event()
     release_payment_lock = Event()
     patch_connection_ready = Event()
 
     backend_pids = {}
 
-    # --------------------------------------------------
-    # 1. Create committed test data
-    # --------------------------------------------------
-    with TestingSessionLocal() as setup_session:
-        customer = Customer(
-            name="Payment Concurrency Customer",
-            phone="0900000888",
-        )
-
-        setup_session.add(customer)
-        setup_session.flush()
-
-        contract = PawnContract(
-            customer_id=customer.id,
-            principal_amount=Decimal("10000000"),
-            monthly_interest_amount=Decimal("300000"),
-            start_date=date(2026, 11, 1),
-            due_date=date(2026, 12, 1),
-        )
-
-        setup_session.add(contract)
-        setup_session.flush()
-
-        contract_id = contract.id
-        setup_session.commit()
+    contract_id = committed_contract
 
     # --------------------------------------------------
     # 2. Payment worker
@@ -288,39 +286,15 @@ def test_payment_blocks_concurrent_contract_patch():
 
         assert payment_count == 1
 
-def test_patch_blocks_concurrent_payment(monkeypatch):
+
+def test_patch_blocks_concurrent_payment(monkeypatch, committed_contract):
     patch_lock_acquired = Event()
     release_patch_lock = Event()
     payment_connection_ready = Event()
 
     backend_pids = {}
 
-    # --------------------------------------------------
-    # 1. Create committed test data
-    # --------------------------------------------------
-    with TestingSessionLocal() as setup_session:
-        customer = Customer(
-            name="Patch Concurrency Customer",
-            phone=f"09{uuid4().hex[:10]}",
-        )
-
-        setup_session.add(customer)
-        setup_session.flush()
-
-        contract = PawnContract(
-            customer_id=customer.id,
-            principal_amount=Decimal("10000000"),
-            monthly_interest_amount=Decimal("300000"),
-            start_date=date(2026, 11, 1),
-            due_date=date(2026, 12, 1),
-        )
-
-        setup_session.add(contract)
-        setup_session.flush()
-
-        contract_id = contract.id
-
-        setup_session.commit()
+    contract_id = committed_contract
 
     # --------------------------------------------------
     # 2. Wrap the real repository locking function
@@ -478,54 +452,3 @@ def test_patch_blocks_concurrent_payment(monkeypatch):
         )
 
         assert payment_count == 1
-
-@pytest.fixture
-def committed_contract():
-    with TestingSessionLocal() as session:
-        customer = Customer(
-            name="Concurrency Test Customer",
-            phone=f"09{uuid4().hex[:10]}",
-        )
-
-        session.add(customer)
-        session.flush()
-
-        contract = PawnContract(
-            customer_id=customer.id,
-            principal_amount=Decimal("10000000"),
-            monthly_interest_amount=Decimal("300000"),
-            start_date=date(2026, 11, 1),
-            due_date=date(2026, 12, 1),
-        )
-
-        session.add(contract)
-        session.flush()
-
-        customer_id = customer.id
-        contract_id = contract.id
-
-        session.commit()
-
-    try:
-        yield contract_id
-    finally:
-        with TestingSessionLocal() as cleanup_session:
-            cleanup_session.execute(
-                delete(Payment).where(
-                    Payment.contract_id == contract_id
-                )
-            )
-
-            cleanup_session.execute(
-                delete(PawnContract).where(
-                    PawnContract.id == contract_id
-                )
-            )
-
-            cleanup_session.execute(
-                delete(Customer).where(
-                    Customer.id == customer_id
-                )
-            )
-
-            cleanup_session.commit()
