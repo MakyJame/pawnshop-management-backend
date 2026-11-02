@@ -40,7 +40,6 @@ def create_active_contract(
         PawnContractCreate(
             customer_id=customer.id,
             principal_amount=11000000,
-            monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
         ),
     )

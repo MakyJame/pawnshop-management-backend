@@ -53,7 +53,6 @@ def create_contract(
         json={
             "customer_id": customer_id,
             "principal_amount": 11000000,
-            "monthly_interest_amount": 550000,
             "start_date": "2026-08-01",
         },
     )
@@ -651,7 +650,6 @@ def test_create_payment_rejects_liquidated_contract(
         PawnContractCreate(
             customer_id=customer.id,
             principal_amount=11000000,
-            monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
         ),
     )

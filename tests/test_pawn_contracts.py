@@ -59,7 +59,6 @@ def create_contract(
         json={
             "customer_id": customer_id,
             "principal_amount": 11000000,
-            "monthly_interest_amount": 550000,
             "start_date": "2026-08-22",
         },
     )
@@ -87,7 +86,6 @@ def create_liquidated_contract(
         PawnContractCreate(
             customer_id=customer.id,
             principal_amount=11000000,
-            monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
         ),
     )
@@ -120,7 +118,6 @@ def test_create_pawn_contract_success(
         json={
             "customer_id": customer_id,
             "principal_amount": 11000000,
-            "monthly_interest_amount": 550000,
             "start_date": "2026-08-03",
         },
     )
@@ -145,7 +142,6 @@ def test_create_contract_with_assets_success(
         json={
             "customer_id": customer_id,
             "principal_amount": 11000000,
-            "monthly_interest_amount": 550000,
             "start_date": "2026-08-06",
             "assets": [
                 {
@@ -181,7 +177,6 @@ def test_create_contract_requires_at_least_one_asset(
         json={
             "customer_id": customer_id,
             "principal_amount": 11000000,
-            "monthly_interest_amount": 550000,
             "start_date": "2026-08-06",
             "assets": [],
         },
@@ -198,7 +193,6 @@ def test_create_contract_with_assets_rejects_pawned_license_plate(
     first_payload = {
         "customer_id": customer_id,
         "principal_amount": 11000000,
-        "monthly_interest_amount": 550000,
         "start_date": "2026-08-06",
 
         "assets": [
@@ -233,7 +227,6 @@ def test_create_pawn_contract_rejects_missing_customer(
         json={
             "customer_id": 999999999,
             "principal_amount": 11000000,
-            "monthly_interest_amount": 550000,
             "start_date": "2026-08-03",
         },
     )
@@ -255,7 +248,6 @@ def test_create_pawn_contract_rejects_client_supplied_due_date(
         json={
             "customer_id": customer_id,
             "principal_amount": 11000000,
-            "monthly_interest_amount": 550000,
             "start_date": "2026-09-03",
             "due_date": "2026-10-03",
         },
@@ -340,7 +332,6 @@ def test_overdue_contract_can_be_liquidated(
         PawnContractCreate(
             customer_id=customer.id,
             principal_amount=11000000,
-            monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
         ),
     )
@@ -381,7 +372,6 @@ def test_overdue_contract_cannot_return_to_active(
         PawnContractCreate(
             customer_id=customer.id,
             principal_amount=11000000,
-            monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
         ),
     )
@@ -474,7 +464,6 @@ def test_mark_overdue_contracts_marks_past_due_contract(
         PawnContractCreate(
             customer_id=customer.id,
             principal_amount=11000000,
-            monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
         ),
     )
@@ -507,7 +496,6 @@ def test_mark_overdue_contracts_does_not_change_future_contract(
         PawnContractCreate(
             customer_id=customer.id,
             principal_amount=11000000,
-            monthly_interest_amount=550000,
             start_date=date(2026, 7, 10),
         ),
     )
@@ -542,7 +530,6 @@ def test_mark_overdue_contracts_does_not_mark_due_today(
         PawnContractCreate(
             customer_id=customer.id,
             principal_amount=11000000,
-            monthly_interest_amount=550000,
             start_date=date(2026, 7, 22),
         ),
     )
@@ -695,7 +682,6 @@ def test_liquidate_endpoint_success(
         PawnContractCreate(
             customer_id=customer.id,
             principal_amount=11000000,
-            monthly_interest_amount=550000,
             start_date=date(2026, 7, 1),
         ),
     )
@@ -765,12 +751,10 @@ def test_renew_contract_success(
     client: TestClient,
 ) -> None:
     old_contract_id = create_contract(client)
-    #old_customer_id = create_customer(client)i
     response = client.post(
         f"/pawn-contracts/{old_contract_id}/renew",
         json={
             "additional_amount":"3000000",
-            "monthly_interest_amount":"500000",
             "start_date":"2026-09-10",
         },
     )
@@ -820,7 +804,6 @@ def test_renew_contract_copies_assets(
         f"/pawn-contracts/{old_contract_id}/renew",
         json={
             "additional_amount": 3000000,
-            "monthly_interest_amount": 500000,
             "start_date": "2026-09-10",
         },
     )
@@ -871,7 +854,6 @@ def test_redeemed_contract_cannot_be_renewed(
         f"/pawn-contracts/{contract_id}/renew",
         json={
             "additional_amount": 3000000,
-            "monthly_interest_amount": 500000,
             "start_date": "2026-09-11",
         },
     )
@@ -904,7 +886,6 @@ def test_liquidated_contract_cannot_be_renewed(
         f"/pawn-contracts/{contract_id}/renew",
         json={
             "additional_amount": 3000000,
-            "monthly_interest_amount": 500000,
             "start_date": "2026-10-16",
         },
     )
@@ -920,7 +901,6 @@ def test_renewed_contract_cannot_be_renewed_again(
         f"/pawn-contracts/{old_contract_id}/renew",
         json={
             "additional_amount": 3000000,
-            "monthly_interest_amount": 500000,
             "start_date": "2026-09-10",
         },
     )
@@ -931,7 +911,6 @@ def test_renewed_contract_cannot_be_renewed_again(
         f"/pawn-contracts/{old_contract_id}/renew",
         json={
             "additional_amount": 4000000,
-            "monthly_interest_amount": 550000,
             "start_date": "2026-09-11",
         },
     )
@@ -947,7 +926,6 @@ def test_renewed_contract_cannot_be_edited(
         f"/pawn-contracts/{old_contract_id}/renew",
         json={
             "additional_amount": 3000000,
-            "monthly_interest_amount": 500000,
             "start_date": "2026-09-10",
         },
     )
@@ -957,7 +935,7 @@ def test_renewed_contract_cannot_be_edited(
     response = client.patch(
         f"/pawn-contracts/{old_contract_id}",
         json={
-            "monthly_interest_amount": 600000,
+            "principal_amount": 12000000,
         },
     )
 
@@ -972,7 +950,6 @@ def test_renewed_contract_cannot_be_redeemed(
         f"/pawn-contracts/{old_contract_id}/renew",
         json={
             "additional_amount": 3000000,
-            "monthly_interest_amount": 500000,
             "start_date": "2026-09-10",
         },
     )
@@ -998,7 +975,6 @@ def test_renewed_contract_cannot_be_liquidated(
         f"/pawn-contracts/{old_contract_id}/renew",
         json={
             "additional_amount": 3000000,
-            "monthly_interest_amount": 500000,
             "start_date": "2026-09-10",
         },
     )
@@ -1020,7 +996,6 @@ def test_create_payment_rejects_renewed_contract(
         f"/pawn-contracts/{old_contract_id}/renew",
         json={
             "additional_amount": 3000000,
-            "monthly_interest_amount": 500000,
             "start_date": "2026-09-10",
         },
     )
@@ -1059,7 +1034,6 @@ def test_renew_contract_uses_outstanding_plus_additional_amount(
         f"/pawn-contracts/{old_contract_id}/renew",
         json={
             "additional_amount": 3000000,
-            "monthly_interest_amount": 500000,
             "start_date": "2026-09-10",
         },
     )
@@ -1078,7 +1052,6 @@ def test_renew_contract_rejects_client_supplied_principal_amount(
         f"/pawn-contracts/{old_contract_id}/renew",
         json={
             "principal_amount": 14000000,
-            "monthly_interest_amount": 500000,
             "start_date": "2026-09-10",
         },
     )
@@ -1106,7 +1079,6 @@ def test_renew_contract_calculates_new_principal_from_outstanding_plus_additiona
         f"/pawn-contracts/{old_contract_id}/renew",
         json={
             "additional_amount": 3000000,
-            "monthly_interest_amount": 600000,
             "start_date": "2026-08-24",
         },
     )
@@ -1129,7 +1101,6 @@ def test_create_contract_generates_contract_code(
         json={
             "customer_id": customer_id,
             "principal_amount": 11000000,
-            "monthly_interest_amount": 550000,
             "start_date": "2026-09-20",
         },
     )
@@ -1153,7 +1124,6 @@ def test_create_contract_rejects_client_supplied_contract_code(
             "contract_code":"TL-20240909-1",
             "customer_id": customer_id,
             "principal_amount": 11000000,
-            "monthly_interest_amount": 550000,
             "start_date": "2026-09-20",
         },
     )
@@ -1165,7 +1135,6 @@ def test_create_contract_rejects_client_supplied_contract_code(
         f"/pawn-contracts/{old_contract_id}/renew",
         json={
             "additional_amount": 4000000,
-            "monthly_interest_amount": 700000,
             "start_date":"2026-09-23",
         },
     )
@@ -1193,7 +1162,6 @@ def test_create_contract_with_new_customer_and_assets(
             },
             "contract": {
                 "principal_amount": 15000000,
-                "monthly_interest_amount": 450000,
                 "start_date": "2026-10-21",
             },
             "assets": [
@@ -1250,7 +1218,6 @@ def test_create_contract_reuses_existing_customer(
             },
             "contract": {
                 "principal_amount": 15000000,
-                "monthly_interest_amount": 450000,
                 "start_date": "2026-10-21",
             },
             "assets": [
@@ -1299,7 +1266,6 @@ def test_create_contract_with_existing_customer_id(
             "customer_id": existing_customer_id,
             "contract": {
                 "principal_amount": 15000000,
-                "monthly_interest_amount": 450000,
                 "start_date": "2026-10-21",
             },
             "assets": [
@@ -1345,7 +1311,6 @@ def test_create_contract_with_nonexistent_customer_id(
             "customer_id": nonexistent_customer_id,
             "contract": {
                 "principal_amount": 15000000,
-                "monthly_interest_amount": 450000,
                 "start_date": "2026-10-21",
             },
             "assets": [
@@ -1374,7 +1339,6 @@ def test_create_contract_rejects_both_customer_id_and_customer(
             },
             "contract": {
                 "principal_amount": 15000000,
-                "monthly_interest_amount": 450000,
                 "start_date": "2026-10-21",
             },
             "assets": [
@@ -1398,7 +1362,6 @@ def test_create_contract_rejects_missing_customer_selection(
         json={
             "contract": {
                 "principal_amount": 15000000,
-                "monthly_interest_amount": 450000,
                 "start_date": "2026-10-21",
             },
             "assets": [
@@ -1426,7 +1389,6 @@ def test_create_contract_rejects_invalid_customer_id(
             "customer_id": customer_id,
             "contract": {
                 "principal_amount": 15000000,
-                "monthly_interest_amount": 450000,
                 "start_date": "2026-10-21",
             },
             "assets": [
@@ -1474,7 +1436,6 @@ def test_create_contract_rejects_customer_information_conflict(
             },
             "contract": {
                 "principal_amount": 15000000,
-                "monthly_interest_amount": 450000,
                 "start_date": "2026-10-21",
             },
             "assets": [
@@ -1514,7 +1475,6 @@ def test_create_contract_with_customer_rejects_pawned_license_plate(
         },
         "contract": {
             "principal_amount": 15000000,
-            "monthly_interest_amount": 450000,
             "start_date": "2026-10-21",
         },
         "assets": [
@@ -1673,3 +1633,90 @@ def test_get_pawn_contract_details_with_payments(
     assert summary["outstanding_principal"] == "9000000"
 
 
+def test_patch_contract_recalculates_interest_due_date_and_contract_code(
+    client: TestClient,
+) -> None:
+    contract_id = create_contract(client)
+
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "principal_amount": 12000000,
+            "start_date": "2026-10-15",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert int(data["principal_amount"]) == 12000000
+    assert int(data["monthly_interest_amount"]) == 600000
+
+    assert data["start_date"] == "2026-10-15"
+    assert data["due_date"] == "2026-11-15"
+
+    assert data["contract_code"] == (
+        f"TL-20261015-{contract_id}"
+    )
+
+    get_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert get_response.status_code == 200
+
+    saved_contract = get_response.json()
+
+    assert int(saved_contract["principal_amount"]) == 12000000
+    assert int(saved_contract["monthly_interest_amount"]) == 600000
+
+    assert saved_contract["start_date"] == "2026-10-15"
+    assert saved_contract["due_date"] == "2026-11-15"
+
+    assert saved_contract["contract_code"] == (
+        f"TL-20261015-{contract_id}"
+    )
+
+
+def test_patch_contract_rejects_contract_with_existing_payment(
+    client: TestClient,
+) -> None:
+    # Arrange: Create a contract
+    contract_id = create_contract(client)
+
+    # Arrange: Record an interest payment
+    payment_response = client.post(
+        "/payments",
+        json={
+            "contract_id": contract_id,
+            "amount": 550000,
+            "payment_type": "interest",
+            "payment_date": "2026-08-23",
+        },
+    )
+
+    assert payment_response.status_code == 201
+
+    # Act: Attempt to modify the contract
+    patch_response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "principal_amount": 12000000,
+        },
+    )
+
+    # Assert: Editing must be rejected
+    assert patch_response.status_code == 409, patch_response.json()
+
+    # Assert: The original principal must remain unchanged
+    get_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert get_response.status_code == 200
+
+    saved_contract = get_response.json()
+
+    assert int(saved_contract["principal_amount"]) == 11000000
+    assert int(saved_contract["monthly_interest_amount"]) == 550000

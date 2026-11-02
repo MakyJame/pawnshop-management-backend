@@ -44,7 +44,6 @@ def create_contract(
         json={
             "customer_id": customer_id,
             "principal_amount": 11000000,
-            "monthly_interest_amount": 550000,
             "start_date": "2026-08-03",
         },
     )

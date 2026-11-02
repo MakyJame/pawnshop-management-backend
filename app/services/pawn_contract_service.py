@@ -53,7 +53,9 @@ from app.services.payment_service import (
     calculate_outstanding_principal,
     get_payment_summary,
 )
-    
+
+from app.services.interest_calculation import calculate_monthly_interest
+
 class PawnContractNotFoundError(Exception):
     pass
 
@@ -217,12 +219,36 @@ def update_existing_pawn_contract(
             raise PawnContractCustomerNotFoundError
 
     try:
+        new_monthly_interest = None
+        new_due_date = None
+
+        if "principal_amount" in contract_data.model_fields_set:
+            new_monthly_interest = calculate_monthly_interest(
+                contract_data.principal_amount
+            )
+
+        if "start_date" in contract_data.model_fields_set:
+            new_due_date = calculate_due_date(
+                contract_data.start_date
+            )
+
         updated_contract = update_contract(
             db,
             contract,
             contract_data,
         )
 
+        if new_monthly_interest is not None:
+            updated_contract.monthly_interest_amount = new_monthly_interest
+
+        if new_due_date is not None:
+            updated_contract.due_date = new_due_date
+
+        if "start_date" in contract_data.model_fields_set:
+            updated_contract.contract_code = generate_contract_code(
+                updated_contract.id,
+                updated_contract.start_date,
+            )
         db.commit()
         db.refresh(updated_contract)
 

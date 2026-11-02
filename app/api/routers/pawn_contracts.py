@@ -19,6 +19,7 @@ from app.schemas.pawn_contract import (
 )
 
 from app.services.pawn_contract_service import (
+    PawnContractCodeAlreadyExistsError,
     PawnContractHasPaymentsError,
     CustomerInformationConflictError,
     PawnContractCannotBeRenewedError,
@@ -269,6 +270,12 @@ def update_pawn_contract_endpoint(
             status_code=status.HTTP_409_CONFLICT,
             detail="Pawn contract cannot be edited because it already has payments.",
         ) from error
+
+    except PawnContractCustomerNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer not found.",
+    ) from error
 
 @router.post(
     "/{contract_id}/liquidate",
