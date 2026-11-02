@@ -22,11 +22,11 @@ from app.repositories.pawn_contract_repository import (
     create_renewed_contract,
     generate_contract_code,
     get_contract_by_id,
+    get_contract_by_id_for_update,
     list_contracts,
     update_contract,
     list_active_contracts_past_due,
     search_contracts_by_license_plate,
-
 )
 
 from app.repositories.pawn_asset_repository import (
@@ -198,27 +198,33 @@ def update_existing_pawn_contract(
     contract_id: int,
     contract_data: PawnContractUpdate,
 ) -> PawnContract:
-    contract = get_pawn_contract(
-        db,
-        contract_id,
-    )
-
-    if contract.status != ContractStatus.ACTIVE:
-        raise PawnContractNotEditableError
-
-    if has_payments_for_contract(db, contract.id):
-        raise PawnContractHasPaymentsError
-
-    if "customer_id" in contract_data.model_fields_set:
-        customer = get_customer_by_id(
-            db,
-            contract_data.customer_id,
-        )
-
-        if customer is None:
-            raise PawnContractCustomerNotFoundError
-
     try:
+        # 1. Acquire a PostgreSQL row-level lock
+        contract = get_contract_by_id_for_update(
+            db,
+            contract_id,
+        )
+        # 2. Check whether the contract exists
+        if contract is None:
+            raise PawnContractNotFoundError
+        # 3. Only ACTIVE contracts can be edited
+        if contract.status != ContractStatus.ACTIVE:
+            raise PawnContractNotEditableError
+
+        # 4. Contracts with payments cannot be edited
+        if has_payments_for_contract(db, contract.id):
+            raise PawnContractHasPaymentsError
+
+        # 5. Validate customer_id if provided
+        if "customer_id" in contract_data.model_fields_set:
+            customer = get_customer_by_id(
+                db,
+                contract_data.customer_id,
+            )
+
+            if customer is None:
+                raise PawnContractCustomerNotFoundError
+        # 6. Calculate derived values
         new_monthly_interest = None
         new_due_date = None
 
@@ -232,27 +238,33 @@ def update_existing_pawn_contract(
                 contract_data.start_date
             )
 
+        # 7. Update the contract
         updated_contract = update_contract(
             db,
             contract,
             contract_data,
         )
-
+        # 8. Update calculated interest
         if new_monthly_interest is not None:
             updated_contract.monthly_interest_amount = new_monthly_interest
 
+        # 9. Update due date
         if new_due_date is not None:
             updated_contract.due_date = new_due_date
 
+        # 10. Regenerate contract code if start_date changes
         if "start_date" in contract_data.model_fields_set:
             updated_contract.contract_code = generate_contract_code(
                 updated_contract.id,
                 updated_contract.start_date,
             )
+
+        # 11. Commit and release the row lock
         db.commit()
         db.refresh(updated_contract)
 
         return updated_contract
+
     except Exception:
         db.rollback()
         raise

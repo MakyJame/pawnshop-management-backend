@@ -19,6 +19,17 @@ def get_contract_by_id(
 ) -> PawnContract | None:
     return db.get(PawnContract, contract_id)
 
+def get_contract_by_id_for_update(
+    db: Session,
+    contract_id: int,
+) -> PawnContract | None:
+    statement = (
+        select(PawnContract)
+        .where(PawnContract.id == contract_id)
+        .with_for_update()
+    )
+
+    return db.scalar(statement)
 
 def get_contract_by_code(
     db: Session,

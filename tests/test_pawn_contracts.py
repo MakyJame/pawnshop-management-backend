@@ -1720,3 +1720,145 @@ def test_patch_contract_rejects_contract_with_existing_payment(
 
     assert int(saved_contract["principal_amount"]) == 11000000
     assert int(saved_contract["monthly_interest_amount"]) == 550000
+
+
+def test_patch_contract_rejects_nonexistent_customer(
+    client: TestClient,
+) -> None:
+    # Arrange: Create a valid contract
+    contract_id = create_contract(client)
+
+    # Arrange: Read the original customer ID
+    get_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert get_response.status_code == 200
+
+    original_customer_id = get_response.json()["customer_id"]
+
+    # Act: Attempt to assign a nonexistent customer
+    patch_response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "customer_id": 999999999,
+        },
+    )
+
+    # Assert: Customer must exist
+    assert patch_response.status_code == 404, patch_response.json()
+
+    # Assert: Original customer must remain unchanged
+    get_response = client.get(
+        f"/pawn-contracts/{contract_id}"
+    )
+
+    assert get_response.status_code == 200
+
+    saved_contract = get_response.json()
+
+    assert saved_contract["customer_id"] == original_customer_id
+
+def test_patch_contract_rejects_nonexistent_contract(
+    client: TestClient,
+) -> None:
+    # Act: Attempt to update a nonexistent contract
+    response = client.patch(
+        "/pawn-contracts/999999999",
+        json={
+            "principal_amount": 12000000,
+        },
+    )
+
+    # Assert: Contract must exist
+    assert response.status_code == 404, response.json()
+
+    assert response.json()["detail"] == "Pawn contract not found."
+
+def test_patch_contract_rejects_empty_request(
+    client: TestClient,
+) -> None:
+    # Arrange: Create an existing contract
+    contract_id = create_contract(client)
+
+    # Act: Send an empty PATCH request
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={},
+    )
+
+    # Assert: Empty updates are not allowed
+    assert response.status_code == 422, response.json()
+
+    # Assert: The error comes from request validation
+    errors = response.json()["detail"]
+
+    assert any(
+        error["type"] == "value_error"
+        for error in errors
+    )
+
+@pytest.mark.parametrize(
+    "invalid_principal",
+    [
+        0,
+        -1000000,
+    ],
+)
+def test_patch_contract_rejects_nonpositive_principal(
+    client: TestClient,
+    invalid_principal: int,
+) -> None:
+    # Arrange
+    contract_id = create_contract(client)
+
+    # Act
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            "principal_amount": invalid_principal,
+        },
+    )
+
+    # Assert
+    assert response.status_code == 422, response.json()
+
+    errors = response.json()["detail"]
+
+    assert any(
+        error["type"] == "greater_than"
+        for error in errors
+    )
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "customer_id",
+        "principal_amount",
+        "start_date",
+    ],
+)
+def test_patch_contract_rejects_explicit_null(
+    client: TestClient,
+    field_name: str,
+) -> None:
+    # Arrange
+    contract_id = create_contract(client)
+
+    # Act
+    response = client.patch(
+        f"/pawn-contracts/{contract_id}",
+        json={
+            field_name: None,
+        },
+    )
+
+    # Assert
+    assert response.status_code == 422, response.json()
+
+    errors = response.json()["detail"]
+
+    assert any(
+        error["type"] == "value_error"
+        for error in errors
+    )

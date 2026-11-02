@@ -4,6 +4,8 @@ from app.models.pawn_contract import ContractStatus
 from app.models.payment import Payment, PaymentType
 from app.repositories.pawn_contract_repository import (
     get_contract_by_id,
+    get_contract_by_id_for_update,
+
 )
 from app.repositories.payment_repository import (
     create_payment,
@@ -72,47 +74,53 @@ def create_new_payment(
     db: Session,
     payment_data: PaymentCreate,
 ) -> Payment:
-    contract = get_contract_by_id(
-        db,
-        payment_data.contract_id,
-    )
-
-    if contract is None:
-        raise PaymentContractNotFoundError
-    
-    if payment_data.payment_type == PaymentType.REDEMPTION:
-        raise DirectRedemptionPaymentNotAllowedError
-
-    if contract.status in {
-        ContractStatus.REDEEMED,
-        ContractStatus.LIQUIDATED,
-        ContractStatus.RENEWED,
-    }:
-        raise PaymentContractClosedError
-    if payment_data.payment_type == PaymentType.PRINCIPAL:
-        total_principal_paid = get_total_paid_by_type(
+    try:
+        # 1. Lock the contract row
+        contract = get_contract_by_id_for_update(
+            db,
+            payment_data.contract_id,
+        )
+        # 2. Validate contract existence
+        if contract is None:
+            raise PaymentContractNotFoundError
+        # 3. Reject direct redemption payments
+        if payment_data.payment_type == PaymentType.REDEMPTION:
+            raise DirectRedemptionPaymentNotAllowedError
+        # 4. Reject payments for closed contracts
+        if contract.status in {
+            ContractStatus.REDEEMED,
+            ContractStatus.LIQUIDATED,
+            ContractStatus.RENEWED,
+        }:
+            raise PaymentContractClosedError
+        # 5. Validate principal payments
+        if payment_data.payment_type == PaymentType.PRINCIPAL:
+            total_principal_paid = get_total_paid_by_type(
                 db,
                 contract.id,
                 PaymentType.PRINCIPAL,
-        )
-        total_redemption_paid = get_total_paid_by_type(
+            )
+            total_redemption_paid = get_total_paid_by_type(
                 db,
                 contract.id,
                 PaymentType.REDEMPTION,
-        )
-        outstanding_principal = calculate_outstanding_principal(
+            )
+            outstanding_principal = calculate_outstanding_principal(
                 contract.principal_amount,
                 total_principal_paid,
                 total_redemption_paid,
-        )
-        if payment_data.amount > outstanding_principal: 
-            raise PrincipalPaymentExceedsOutstandingError
-    try:
+            )
+
+            if payment_data.amount > outstanding_principal:
+                raise PrincipalPaymentExceedsOutstandingError
+
+        # 6. Create payment
         payment = create_payment(
             db,
             payment_data,
         )
 
+        # 7. Commit transaction and release lock
         db.commit()
         db.refresh(payment)
 
