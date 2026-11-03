@@ -5,7 +5,6 @@ from dateutil.relativedelta import relativedelta
 
 from app.models.pawn_contract import ContractStatus, PawnContract
 from app.models.pawn_asset import PawnAsset
-from app.models.payment import PaymentType
 
 from app.models.customer import Customer
 
@@ -19,7 +18,6 @@ from app.repositories.customer_repository import (
 )
 from app.repositories.pawn_contract_repository import (
     create_contract,
-    create_renewed_contract,
     generate_contract_code,
     get_contract_by_id,
     get_contract_by_id_for_update,
@@ -33,7 +31,6 @@ from app.repositories.pawn_asset_repository import (
     get_active_asset_by_license_plate,
 )
 from app.repositories.payment_repository import (
-    get_total_paid_by_type,
     has_payments_for_contract,
 )
 from app.schemas.pawn_contract import (
@@ -41,7 +38,6 @@ from app.schemas.pawn_contract import (
     PawnContractUpdate,
     PawnContractResponse,
     PawnContractWithAssetsCreate,
-    PawnContractRenewCreate,
     PawnContractWithCustomerAndAssetsCreate,
     PawnContractDetailsResponse,
     PawnContractSearchResponse,
@@ -50,7 +46,6 @@ from app.schemas.pawn_contract import (
 from app.schemas.pawn_asset import PawnAssetCreate
 
 from app.services.payment_service import (
-    calculate_outstanding_principal,
     get_payment_summary,
 )
 
@@ -85,9 +80,6 @@ class PawnContractNotEditableError(Exception):
     pass
 
 class PawnContractHasPaymentsError(Exception):
-    pass
-
-class PawnContractCannotBeRenewedError(Exception):
     pass
 
 class CustomerInformationConflictError(Exception):
@@ -342,84 +334,6 @@ def create_pawn_contract_with_assets(
         db.rollback()
         raise
 
-def renew_contract(
-    db: Session,
-    contract_id: int,
-    renewal_data: PawnContractRenewCreate,
-) -> PawnContract:
-    old_contract = get_contract_by_id(
-        db,
-        contract_id,
-    )
-    if old_contract is None:
-        raise PawnContractNotFoundError
-
-    if old_contract.status not in {
-        ContractStatus.ACTIVE,
-        ContractStatus.OVERDUE,
-    }:
-        raise PawnContractCannotBeRenewedError
-
-    try:
-        total_principal_paid = get_total_paid_by_type(
-            db,
-            old_contract.id,
-            PaymentType.PRINCIPAL,
-        )
-        total_redemption_paid = get_total_paid_by_type(
-            db,
-            old_contract.id,
-            PaymentType.REDEMPTION
-        )
-        old_outstanding_principal = calculate_outstanding_principal(
-            old_contract.principal_amount,
-            total_principal_paid,
-            total_redemption_paid,
-        )
-        new_principal_amount = (
-            old_outstanding_principal
-            + renewal_data.additional_amount
-        )
-
-        # Calculate interest based on the new principal
-        monthly_interest_amount = calculate_monthly_interest(
-            new_principal_amount
-        )
-
-        due_date = calculate_due_date(
-            renewal_data.start_date,
-        )
-
-        new_contract = create_renewed_contract(
-            db,
-            customer_id=old_contract.customer_id,
-            principal_amount=new_principal_amount,
-            monthly_interest_amount=monthly_interest_amount,
-            start_date=renewal_data.start_date,
-            due_date=due_date,
-            previous_contract_id=old_contract.id,
-        )
-
-        for old_asset in old_contract.assets:
-            new_asset = PawnAsset(
-                contract_id=new_contract.id,
-                brand=old_asset.brand,
-                model_year=old_asset.model_year,
-                license_plate=old_asset.license_plate,
-                owner_storage=old_asset.owner_storage,
-            )
-            db.add(new_asset)
-
-        old_contract.status = ContractStatus.RENEWED
-
-        db.commit()
-        db.refresh(new_contract)
-        
-        return new_contract
-
-    except Exception:
-        db.rollback()
-        raise
 
 
 def mark_overdue_contracts(

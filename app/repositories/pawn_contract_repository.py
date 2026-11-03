@@ -85,35 +85,6 @@ def create_contract(
 
     return contract
 
-def create_renewed_contract(
-    db: Session,
-      *,
-    customer_id: int,
-    principal_amount: Decimal,
-    monthly_interest_amount: Decimal,
-    start_date: date,
-    due_date: date,
-    previous_contract_id: int,
-) -> PawnContract:
-    contract = PawnContract(
-        customer_id=customer_id,
-        principal_amount=principal_amount,
-        monthly_interest_amount=monthly_interest_amount,
-        start_date=start_date,
-        due_date=due_date,
-        previous_contract_id=previous_contract_id,
-    )
-    db.add(contract)
-    db.flush()
-    
-    contract.contract_code = generate_contract_code(
-        contract.id,
-        contract.start_date,
-    )
-    db.flush()
-
-    return contract
-
 def update_contract(
     db: Session,
     contract: PawnContract,

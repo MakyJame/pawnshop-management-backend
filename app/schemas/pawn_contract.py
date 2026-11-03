@@ -22,14 +22,6 @@ class PawnContractCreate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-
-class PawnContractRenewCreate(BaseModel):
-    additional_amount: Decimal = Field(gt=0)
-
-    start_date: date
-
-    model_config = ConfigDict(extra="forbid")
-
 class PawnContractUpdate(BaseModel):
     customer_id: int | None = Field(
         default=None,
