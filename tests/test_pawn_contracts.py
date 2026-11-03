@@ -108,25 +108,6 @@ def create_liquidated_contract(
 
     return contract.id
 
-def create_renewed_contract_for_test(
-    client: TestClient,
-    db_session,
-) -> int:
-    contract_id = create_contract(client)
-
-    contract = db_session.get(
-        PawnContract,
-        contract_id,
-    )
-
-    assert contract is not None
-
-    contract.status = ContractStatus.RENEWED
-
-    db_session.commit()
-
-    return contract_id
-
 def test_create_pawn_contract_success(
     client: TestClient,
 ) -> None:
@@ -765,79 +746,6 @@ def test_liquidated_contract_cannot_be_redeemed(
     )
 
     assert response.status_code == 409
-
-def test_renewed_contract_cannot_be_edited(
-    client: TestClient,
-    db_session,
-) -> None:
-    old_contract_id = create_renewed_contract_for_test(
-        client,
-        db_session,
-    )
-
-    response = client.patch(
-        f"/pawn-contracts/{old_contract_id}",
-        json={
-            "principal_amount": 12000000,
-        },
-    )
-
-    assert response.status_code == 409, response.json()
-
-def test_renewed_contract_cannot_be_redeemed(
-    client: TestClient,
-    db_session,
-) -> None:
-    old_contract_id = create_renewed_contract_for_test(
-        client,
-        db_session,
-    )
-
-    response = client.post(
-        f"/pawn-contracts/{old_contract_id}/redeem",
-        json={
-            "amount": 11000000,
-            "payment_date": "2026-09-11",
-        },
-    )
-
-    assert response.status_code == 409
-
-def test_renewed_contract_cannot_be_liquidated(
-    client: TestClient,
-    db_session,
-) -> None:
-    old_contract_id = create_renewed_contract_for_test(
-        client,
-        db_session,
-    )
-
-    response = client.post(
-        f"/pawn-contracts/{old_contract_id}/liquidate"
-    )
-
-    assert response.status_code == 409
-
-def test_create_payment_rejects_renewed_contract(
-    client: TestClient,
-    db_session,
-) -> None:
-    old_contract_id = create_renewed_contract_for_test(
-        client,
-        db_session,
-    )
-
-    payment = client.post(
-        f"/payments",
-        json={
-            "contract_id":old_contract_id,
-            "amount": 1000000,
-            "payment_type": "interest",
-            "payment_date": "2026-09-10",
-        },
-    )
-
-    assert payment.status_code == 409
 
 def test_create_contract_generates_contract_code(
     client: TestClient,

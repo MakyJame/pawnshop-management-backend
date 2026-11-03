@@ -90,7 +90,6 @@ def create_new_payment(
         if contract.status in {
             ContractStatus.REDEEMED,
             ContractStatus.LIQUIDATED,
-            ContractStatus.RENEWED,
         }:
             raise PaymentContractClosedError
         # 5. Validate principal payments

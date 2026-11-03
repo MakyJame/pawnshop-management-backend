@@ -1,4 +1,3 @@
-#models.pawn_contract
 from datetime import date
 from decimal import Decimal
 from enum import Enum
@@ -20,7 +19,6 @@ class ContractStatus(str, Enum):
     REDEEMED = "redeemed"
     OVERDUE = "overdue"
     LIQUIDATED = "liquidated"
-    RENEWED = "renewed"
 
 class PawnContract(Base):
     __tablename__ = "pawn_contracts"
@@ -82,11 +80,3 @@ class PawnContract(Base):
         back_populates="contract",
         cascade="all, delete-orphan",
     )
-
-    previous_contract_id: Mapped[int | None] = mapped_column(
-        ForeignKey("pawn_contracts.id"),
-        nullable=True,
-    )
-
-
-#models.pawn_contract

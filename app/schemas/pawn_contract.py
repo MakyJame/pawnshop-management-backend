@@ -65,7 +65,6 @@ class PawnContractResponse(BaseModel):
     start_date: date
     due_date: date
     status: ContractStatus
-    previous_contract_id: int | None
 
     model_config = ConfigDict(from_attributes=True)
 
