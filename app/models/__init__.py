@@ -2,6 +2,7 @@ from app.models.customer import Customer
 from app.models.pawn_asset import PawnAsset
 from app.models.pawn_contract import ContractStatus, PawnContract
 from app.models.payment import Payment, PaymentType
+from app.models.user import User
 
 __all__ = [
     "ContractStatus",
@@ -10,4 +11,5 @@ __all__ = [
     "PawnContract",
     "Payment",
     "PaymentType",
+    "User",
 ]
