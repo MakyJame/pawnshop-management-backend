@@ -28,7 +28,6 @@ from app.services.pawn_contract_service import (
     PawnContractCustomerNotFoundError,
     PawnContractNotFoundError,
     LicensePlateAlreadyPawnedError,
-    create_new_pawn_contract,
     get_pawn_contract,
     get_pawn_contracts,
     update_existing_pawn_contract,
@@ -55,21 +54,14 @@ def create_pawn_contract_endpoint(
     contract_data: PawnContractCreate,
     db: Session = Depends(get_db),
 ) -> PawnContractResponse:
-    try:
-        return create_new_pawn_contract(
-            db,
-            contract_data,
-        )
-    except PawnContractCustomerNotFoundError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Customer not found.",
-        ) from error
-    except PawnContractCodeAlreadyExistsError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Pawn contract code already exists.",
-        ) from error
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail=(
+            "Creating a pawn contract without assets is no longer supported. "
+            "Use /pawn-contracts/with-assets instead."
+        ),
+    )
+
 
 @router.post(
     "/with-assets",

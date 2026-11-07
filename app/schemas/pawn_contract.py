@@ -71,8 +71,18 @@ class PawnContractResponse(BaseModel):
 class PawnContractWithAssetsCreate(PawnContractCreate):
     assets: list[PawnAssetNestedCreate] = Field(
         min_length=1,
-        max_length=10,
+        max_length=1,
     )
+    @model_validator(mode="after")
+    def validate_license_plate(self):
+        asset = self.assets[0]
+
+        if not asset.license_plate or not asset.license_plate.strip():
+            raise ValueError(
+                "license_plate is required when creating a pawn contract"
+            )
+
+        return self
 
 
 class PawnContractWithAssetsResponse(PawnContractResponse):
@@ -103,7 +113,7 @@ class PawnContractWithCustomerAndAssetsCreate(BaseModel):
 
     assets: list[PawnAssetNestedCreate] = Field(
         min_length=1,
-        max_length=10,
+        max_length=1,
     )
 
     model_config = ConfigDict(extra="forbid")
@@ -113,6 +123,17 @@ class PawnContractWithCustomerAndAssetsCreate(BaseModel):
         if (self.customer_id is None) == (self.customer is None):
             raise ValueError(
                 "Provide exactly one of customer_id or customer"
+            )
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_license_plate(self):
+        asset = self.assets[0]
+
+        if not asset.license_plate or not asset.license_plate.strip():
+            raise ValueError(
+                "license_plate is required when creating a pawn contract"
             )
 
         return self

@@ -62,6 +62,7 @@ def create_contract(
     due_date: date,
     *,
     monthly_interest_amount: Decimal,
+    license_plate: str,
 ) -> PawnContract:
 
     contract_fields = contract_data.model_dump(
@@ -78,8 +79,8 @@ def create_contract(
     db.flush()
 
     contract.contract_code = generate_contract_code(
-        contract.id,
-        contract.start_date,
+        license_plate=license_plate,
+        start_date=contract.start_date,
     )
     db.flush()
 
@@ -119,11 +120,11 @@ def list_active_contracts_past_due(
     return list(db.scalars(statement).all())
 
 def generate_contract_code(
-    contract_id: int,
+    license_plate: str,
     start_date: date,
 ) -> str:
     date_part = start_date.strftime("%Y%m%d")
-    return f"TL-{date_part}-{contract_id}"
+    return f"TL-{date_part}-{license_plate}"
 
 def search_contracts_by_license_plate(
     db: Session,

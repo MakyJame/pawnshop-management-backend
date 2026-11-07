@@ -148,43 +148,6 @@ def search_pawn_contracts_by_license_plate(
         for row in rows
     ]
 
-def create_new_pawn_contract(
-    db: Session,
-    contract_data: PawnContractCreate,
-) -> PawnContract:
-    customer = get_customer_by_id(
-        db,
-        contract_data.customer_id,
-    )   
-
-    if customer is None:
-        raise PawnContractCustomerNotFoundError
-
-    due_date = calculate_due_date(
-        contract_data.start_date,
-    )
-    
-    try:
-        monthly_interest_amount = calculate_monthly_interest(
-            contract_data.principal_amount
-        )
-
-        contract = create_contract(
-            db,
-            contract_data,
-            due_date,
-            monthly_interest_amount=monthly_interest_amount,
-        )
-
-        db.commit()
-        db.refresh(contract)
-        
-        return contract
-    except Exception:
-        db.rollback()
-        raise
-
-
 def update_existing_pawn_contract(
     db: Session,
     contract_id: int,
@@ -243,13 +206,6 @@ def update_existing_pawn_contract(
         # 9. Update due date
         if new_due_date is not None:
             updated_contract.due_date = new_due_date
-
-        # 10. Regenerate contract code if start_date changes
-        if "start_date" in contract_data.model_fields_set:
-            updated_contract.contract_code = generate_contract_code(
-                updated_contract.id,
-                updated_contract.start_date,
-            )
 
         # 11. Commit and release the row lock
         db.commit()
@@ -311,10 +267,9 @@ def create_pawn_contract_with_assets(
         db.flush()
         
         contract.contract_code = generate_contract_code(
-            contract.id,
-            contract.start_date,
+            license_plate=contract_data.assets[0].license_plate,
+            start_date=contract.start_date,
         )
-        
         db.flush()
 
         for asset_data in contract_data.assets:
@@ -580,6 +535,8 @@ def create_pawn_contract_with_customer_and_assets(
             contract_data,
             calculate_due_date(contract_data.start_date),
             monthly_interest_amount=monthly_interest_amount,
+            license_plate=data.assets[0].license_plate,
+
         )
 
         # 4. Tạo PawnAssets

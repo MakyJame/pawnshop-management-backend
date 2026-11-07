@@ -38,20 +38,27 @@ def create_contract(
     client: TestClient,
 ) -> int:
     customer_id = create_customer(client)
+    license_plate = unique_license_plate()
 
     response = client.post(
-        "/pawn-contracts",
+        "/pawn-contracts/with-assets",
         json={
             "customer_id": customer_id,
             "principal_amount": 11000000,
             "start_date": "2026-08-03",
+            "assets": [
+                {
+                    "brand": "Honda",
+                    "model_year": 2013,
+                    "license_plate": license_plate,
+                }
+            ],
         },
     )
 
     assert response.status_code == 201
 
     return response.json()["id"]
-
 
 def test_create_pawn_asset_success(
     client: TestClient,

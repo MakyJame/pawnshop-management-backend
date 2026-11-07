@@ -8,11 +8,11 @@ from app.repositories.customer_repository import (
     create_customer as create_customer_in_db,
 )
 from app.schemas.customer import CustomerCreate
-from app.schemas.pawn_contract import PawnContractCreate
+from app.schemas.pawn_contract import PawnContractWithAssetsCreate
 from app.services.pawn_contract_service import (
     LiquidationContractNotOverdueError,
     LiquidationGracePeriodNotExpiredError,
-    create_new_pawn_contract,
+    create_pawn_contract_with_assets,
     liquidate_contract,
     mark_overdue_contracts,
 )
@@ -20,6 +20,8 @@ def unique_phone() -> str:
     return f"09{str(uuid4().int)[-8:]}"
 def unique_contract_code() -> str:
     return f"HD-{str(uuid4())[:8]}"
+def unique_license_plate() -> str:
+    return f"TEST-{uuid4().hex[:8].upper()}"
 
 def create_active_contract(
     db_session,
@@ -35,15 +37,21 @@ def create_active_contract(
     db_session.commit()
     db_session.refresh(customer)
 
-    contract = create_new_pawn_contract(
+    contract = create_pawn_contract_with_assets(
         db_session,
-        PawnContractCreate(
+        PawnContractWithAssetsCreate(
             customer_id=customer.id,
             principal_amount=11000000,
             start_date=date(2026, 7, 1),
+            assets=[
+                {
+                    "brand": "Honda",
+                    "model_year": 2013,
+                    "license_plate": unique_license_plate(),
+                }
+            ],
         ),
     )
-
     return contract
 
 def create_overdue_contract(
